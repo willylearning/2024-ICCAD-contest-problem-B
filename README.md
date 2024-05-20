@@ -1,1 +1,1 @@
-# 2024-ICCAD-contest-problem-B
+# cad_contest
