@@ -1,8 +1,8 @@
 # cad_contest
 
-how to compile 
+how to compile :
 make
 
-how to run 
+how to run :
 ./input_process
 ./Meanshift
