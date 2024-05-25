@@ -24,4 +24,5 @@ private:
     void set_kernel(double (*_kernel_func)(double,double));
     void shift_point(const Point&, const std::vector<Point> &, double, Point&);
     std::vector<Cluster> cluster(const std::vector<Point> &, const std::vector<Point> &);
+    std::vector<double> variable_bandwidth(const std::vector<Point> &points, double kernel_bandwidth); // define variable bandwidth
 };

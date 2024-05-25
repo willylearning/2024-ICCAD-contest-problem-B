@@ -121,3 +121,21 @@ vector<Cluster> MeanShift::cluster(const std::vector<Point> &points, double kern
     vector<Point> shifted_points = meanshift(points, kernel_bandwidth);
     return cluster(points, shifted_points);
 }
+
+vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, double kernel_bandwidth){
+    vector<double> h_var;
+    vector<Point> Mnearest_points;
+    double hmax = 10; // need to be tested how big it should be
+    int alpha = 5; // need to be determined
+    // find the M-th nearest neighbor of every point in points(can use knn method)
+    // ...... get points M
+   double tmp = 0;
+   for(int i=0; i<points.size(); i++){
+        for(int dim = 0; dim<points[i].size(); dim++) {\
+            Mnearest_points[i] = points[i]; // still need Mnearest_points function
+            tmp = euclidean_distance(points[i], Mnearest_points[i]);
+            h_var.push_back(min(hmax, tmp));
+        }
+    }
+    return h_var;
+}
