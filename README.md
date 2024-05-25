@@ -5,4 +5,4 @@ make
 
 how to run :
 ./input_process
-./Meanshift
+./MeanShift
