@@ -8,23 +8,23 @@
 using namespace std;
 
 struct diesize {
-    int x_left;
-    int y_bottom;
-    int x_right;
-    int y_up;
+    double x_left;
+    double y_bottom;
+    double x_right;
+    double y_up;
 };
 
 struct Pin {
     string name;
-    int x;
-    int y;
+    double x;
+    double y;
 };
 
 struct FlipFlop {
     int bits;
     string name;
-    int width;
-    int height;
+    double width;
+    double height;
     int pinCount;
     vector<Pin> pins;
 };
@@ -32,8 +32,8 @@ struct FlipFlop {
 struct Instance {
     string name;
     string flipFlopName;
-    int x;
-    int y;
+    double x;
+    double y;
 };
 
 struct Net {
@@ -43,10 +43,10 @@ struct Net {
 };
 
 struct PlacementRow {
-    int startX;
-    int startY;
-    int siteWidth;
-    int siteHeight;
+    double startX;
+    double startY;
+    double siteWidth;
+    double siteHeight;
     int totalNumOfSites;
 };
 
@@ -67,7 +67,7 @@ struct GatePower {
 };
 
 int main() {
-    ifstream file("sampleCase");
+    ifstream file("sampleCase2");
     string line;
 
     // Data structures to store parsed information
@@ -77,8 +77,8 @@ int main() {
     vector<FlipFlop> flipFlops;
     vector<Instance> instances;
     vector<Net> nets;
-    int binWidth = 0;
-    int binHeight = 0;
+    double binWidth = 0;
+    double binHeight = 0;
     double binMaxUtil = 0;
     vector<PlacementRow> placementRows;
     vector<TimingSlack> timingSlacks;
@@ -222,6 +222,25 @@ int main() {
     cout << "BinHeight:"<< binHeight << endl;
     cout << "BinMaxUtil:"<< binMaxUtil << endl;
 
+    ofstream csvFile("test.csv");
+    for (const auto& instance : instances) {
+        // Find the corresponding FlipFlop
+        FlipFlop* correspondingFlipFlop = nullptr;
+        for (auto& flipFlop : flipFlops) {
+            if (flipFlop.name == instance.flipFlopName) {
+                correspondingFlipFlop = &flipFlop;
+                break;
+            }
+        }
+
+        if (correspondingFlipFlop) {
+            // Calculate adjusted position
+            double adjustedX = instance.x + correspondingFlipFlop->width / 2;
+            double adjustedY = instance.y + correspondingFlipFlop->height / 2;
+            csvFile << adjustedX << "," << adjustedY << endl;
+        }
+    }
+    csvFile.close();
 
     return 0;
 
