@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <math.h>
+#include <algorithm>
+#include <float.h>
 #include "MeanShift.h"
 
 using namespace std;
@@ -123,19 +125,35 @@ vector<Cluster> MeanShift::cluster(const std::vector<Point> &points, double kern
 }
 
 vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, double kernel_bandwidth){
+    vector<Point> a;
     vector<double> h_var;
     vector<Point> Mnearest_points;
     double hmax = 10; // need to be tested how big it should be
     int alpha = 5; // need to be determined
-    // find the M-th nearest neighbor of every point in points(can use knn method)
-    // ...... get points M
-   double tmp = 0;
-   for(int i=0; i<points.size(); i++){
-        for(int dim = 0; dim<points[i].size(); dim++) {\
-            Mnearest_points[i] = points[i]; // still need Mnearest_points function
-            tmp = euclidean_distance(points[i], Mnearest_points[i]);
-            h_var.push_back(min(hmax, tmp));
+    int M = 2;
+    double m = DBL_MAX;
+    // find the M-th nearest neighbor of every point in points
+    for(int i=0; i<points.size(); i++){
+        double m = DBL_MAX;
+        for(int j=0; j<points.size(); j++){
+            if(i!=j){
+                a[i].push_back(euclidean_distance(points[i], points[j]));
+            }
         }
+        //
+    }
+    sort(a.begin(), a.end());
+
+    for(int i=0; i<points.size(); i++){
+        Mnearest_points[i] = a[M-1];
+    }
+
+    // ...... get points M
+    double tmp = 0;
+    for(int i=0; i<points.size(); i++){
+        Mnearest_points[i] = points[i]; // still need Mnearest_points function
+        tmp = euclidean_distance(points[i], Mnearest_points[i]);
+        h_var.push_back(min(hmax, tmp));
     }
     return h_var;
 }
