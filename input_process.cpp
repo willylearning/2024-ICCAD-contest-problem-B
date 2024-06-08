@@ -67,7 +67,7 @@ struct GatePower {
 };
 
 int main() {
-    ifstream file("sampleCase2");
+    ifstream file("testcase1.txt");
     string line;
 
     // Data structures to store parsed information
@@ -222,7 +222,7 @@ int main() {
     cout << "BinHeight:"<< binHeight << endl;
     cout << "BinMaxUtil:"<< binMaxUtil << endl;
 
-    ofstream csvFile("test.csv");
+    ofstream csvFile("testcase1.csv");
     for (const auto& instance : instances) {
         // Find the corresponding FlipFlop
         FlipFlop* correspondingFlipFlop = nullptr;

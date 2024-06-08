@@ -42,7 +42,7 @@ void print_points(vector<vector<double> > points){
 int main(int argc, char **argv)
 {
     MeanShift *msp = new MeanShift();
-    double kernel_bandwidth = 3;
+    double kernel_bandwidth = 1500;
 
     vector<vector<double> > points = load_points("test.csv");
     vector<Cluster> clusters = msp->cluster(points, kernel_bandwidth);
