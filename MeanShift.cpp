@@ -27,22 +27,19 @@ double euclidean_distance_sqr(const vector<double> &point_a, const vector<double
 }
 
 double gaussian_kernel(double distance, double kernel_bandwidth){
-    double temp =  exp(-1.0/2.0 * (distance*distance) / (kernel_bandwidth*kernel_bandwidth));
+    double temp =  exp(-1.0/2.0 * (distance*distance) / (kernel_bandwidth*kernel_bandwidth)); // gaussian function
     return temp;
 }
 
 void MeanShift::set_kernel( double (*_kernel_func)(double,double) ) {
     if(!_kernel_func){
         kernel_func = gaussian_kernel;
-    } else {
+    }else{
         kernel_func = _kernel_func;    
     }
 }
 
-void MeanShift::shift_point(const Point &point,
-                            const std::vector<Point> &points,
-                            double kernel_bandwidth,
-                            Point &shifted_point) {
+void MeanShift::shift_point(const Point &point, const std::vector<Point> &points, double kernel_bandwidth, Point &shifted_point) {
     shifted_point.resize( point.size() ) ;
     for(int dim = 0; dim<shifted_point.size(); dim++){
         shifted_point[dim] = 0;
@@ -51,7 +48,8 @@ void MeanShift::shift_point(const Point &point,
     for(int i=0; i<points.size(); i++){
         const Point& temp_point = points[i];
         double distance = euclidean_distance(point, temp_point);
-        double weight = kernel_func(distance, kernel_bandwidth);
+        // 核函数（如高斯核）计算了每个点的权重，这些权重用于计算当前点的移动方向和距离。这个过程实际上就是在计算梯度
+        double weight = kernel_func(distance, kernel_bandwidth); // change to variable bandwidth
         for(int j=0; j<shifted_point.size(); j++){
             shifted_point[j] += temp_point[j] * weight;
         }
@@ -60,13 +58,11 @@ void MeanShift::shift_point(const Point &point,
 
     const double total_weight_inv = 1.0/total_weight;
     for(int i=0; i<shifted_point.size(); i++){
-        shifted_point[i] *= total_weight_inv;
+        shifted_point[i] *= total_weight_inv; // 计算加权平均值
     }
 }
 
-std::vector<MeanShift::Point> MeanShift::meanshift(const std::vector<Point> &points,
-                                             double kernel_bandwidth,
-                                             double EPSILON){
+std::vector<MeanShift::Point> MeanShift::meanshift(const std::vector<Point> &points, double kernel_bandwidth, double EPSILON){
     const double EPSILON_SQR = EPSILON*EPSILON;
     vector<bool> stop_moving(points.size(), false);
     vector<Point> shifted_points = points;
@@ -92,9 +88,7 @@ std::vector<MeanShift::Point> MeanShift::meanshift(const std::vector<Point> &poi
     return shifted_points;
 }
 
-vector<Cluster> MeanShift::cluster(const std::vector<Point> &points,
-    const std::vector<Point> &shifted_points)
-{
+vector<Cluster> MeanShift::cluster(const std::vector<Point> &points, const std::vector<Point> &shifted_points){
     vector<Cluster> clusters;
 
     for (int i = 0; i < shifted_points.size(); i++) {
@@ -137,7 +131,8 @@ vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, d
         double m = DBL_MAX;
         for(int j=0; j<points.size(); j++){
             if(i!=j){
-                a[i].push_back(euclidean_distance(points[i], points[j]));
+                // the Euclidean distance between register i and its M-th nearest neighbor
+                a[i].push_back(euclidean_distance(points[i], points[j])); 
             }
         }
         //

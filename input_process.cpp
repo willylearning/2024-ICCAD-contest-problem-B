@@ -66,8 +66,8 @@ struct GatePower {
     double powerConsumption;
 };
 
-int main() {
-    ifstream file("testcase1.txt");
+int main(int argc, char *argv[]) {
+    ifstream file(argv[1]);
     string line;
 
     // Data structures to store parsed information
