@@ -44,7 +44,7 @@ int main(int argc, char **argv)
     MeanShift *msp = new MeanShift();
     double kernel_bandwidth = 1500;
 
-    vector<vector<double> > points = load_points("test.csv");
+    vector<vector<double> > points = load_points("testcase1.csv");
     vector<Cluster> clusters = msp->cluster(points, kernel_bandwidth);
 
     FILE *fp = fopen("result.csv", "w");
@@ -69,6 +69,7 @@ int main(int argc, char **argv)
         }
         printf("\n");
         fprintf(fp, "\n");
+        // fprintf("hello", "\n");
       }
       printf("\n");
     }
