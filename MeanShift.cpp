@@ -150,8 +150,11 @@ vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, d
 
     double tmp = 0;
     for(int i=0; i<points.size(); i++){ 
+        // knn(Identifying Effective Neighbors)
+        // if (a[i][M-1] <= hmax){
         tmp = alpha*a[i][M-1]; // M-th nearest points
         var_h.push_back(min(hmax, tmp));
+        // }
     }
     return var_h;
 }
