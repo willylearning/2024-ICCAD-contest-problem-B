@@ -41,6 +41,7 @@ void MeanShift::set_kernel( double (*_kernel_func)(double,double)){
 }
 
 void MeanShift::shift_point(const Point &point, const std::vector<Point> &points, double kernel_bandwidth, Point &shifted_point) {
+    double hmax = 1500; // need to be tested how big it should be
     // point : current center point, points : all data points
     vector<double> var_h = variable_bandwidth(points, kernel_bandwidth);
     shifted_point.resize(point.size());
@@ -51,8 +52,14 @@ void MeanShift::shift_point(const Point &point, const std::vector<Point> &points
     for(int i=0; i<points.size(); i++){
         const Point& temp_point = points[i];
         double distance = euclidean_distance(point, temp_point);
+        double weight;
         // 核函数（如高斯核）計算了每個點的權重，这些權重用於計算當前點的移動方向和距離。這個過程實際上就是在計算梯度
-        double weight = kernel_func(distance, var_h[i]); // change to variable bandwidth
+        // knn(Identifying Effective Neighbors)
+        if(distance <= hmax){
+            weight = kernel_func(distance, var_h[i]); // change to variable bandwidth
+        } else{
+            weight = 0;
+        }
         for(int j=0; j<shifted_point.size(); j++){
             shifted_point[j] += temp_point[j] * weight;
         }
