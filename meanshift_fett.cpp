@@ -159,3 +159,7 @@ vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, d
     }
     return var_h;
 }
+
+void MeanShift::legalization(const std::vector<Point> &points, const std::vector<Point> &shifted_point){
+    
+}

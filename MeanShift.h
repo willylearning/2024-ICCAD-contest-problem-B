@@ -17,6 +17,7 @@ public:
     std::vector<Point> meanshift(const std::vector<Point> & points, double kernel_bandwidth, double EPSILON = 20);
     std::vector<Cluster> cluster(const std::vector<Point> &, double);
     std::vector<double> variable_bandwidth(const std::vector<Point> &points, double kernel_bandwidth); // define variable bandwidth
+    void legalization(const std::vector<Point> &, const std::vector<Point> &);
 
 private:
     double (*kernel_func)(double,double);

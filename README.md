@@ -4,5 +4,5 @@ how to compile :
 make
 
 how to run :
-./input_process
+./input_process inputs/sampleCase
 ./MeanShift
