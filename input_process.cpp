@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
             flipFlops.push_back(flipFlop);
         } else if (key == "Inst") {
             Instance instance;
-            iss >> instance.name >> instance.flipFlopName >> instance.x >> instance.y;
+            iss >> instance.name >> instance.flipFlopName >> instance.x >> instance.y; // read instance
             instances.push_back(instance);
         } else if (key == "Net") {
             Net net;

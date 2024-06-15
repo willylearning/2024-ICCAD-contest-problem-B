@@ -32,7 +32,7 @@ double gaussian_kernel(double distance, double kernel_bandwidth){
     return temp;
 }
 
-void MeanShift::set_kernel( double (*_kernel_func)(double,double) ) {
+void MeanShift::set_kernel( double (*_kernel_func)(double,double)){
     if(!_kernel_func){
         kernel_func = gaussian_kernel;
     }else{
@@ -60,7 +60,8 @@ void MeanShift::shift_point(const Point &point, const std::vector<Point> &points
     }
 
     const double total_weight_inv = 1.0/total_weight;
-    for(int i=0; i<shifted_point.size(); i++){
+    // knn function
+    for(int i=0; i<shifted_point.size(); i++){ // add KNN identify effective neighbors
         shifted_point[i] *= total_weight_inv; // 計算加權平均值
     }
 }
@@ -86,7 +87,7 @@ std::vector<MeanShift::Point> MeanShift::meanshift(const std::vector<Point> &poi
                 shifted_points[i] = point_new;
             }
         }
-        printf("max_shift_distance: %f\n", sqrt(max_shift_distance));
+        // printf("max_shift_distance: %f\n", sqrt(max_shift_distance));
     } while (max_shift_distance > EPSILON_SQR);
     return shifted_points;
 }
@@ -139,13 +140,13 @@ vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, d
         sort(a[i].begin(), a[i].end());
     }
 
-    for(int i=0; i< a.size(); i++){
-        for(int j=0; j< a[i].size(); j++){
-            cout << a[i][j] << "\n";
-        }
-        cout << "stop" << "\n";
-        sort(a[i].begin(), a[i].end());
-    }
+    // for(int i=0; i< a.size(); i++){
+    //     for(int j=0; j< a[i].size(); j++){
+    //         cout << a[i][j] << "\n";
+    //     }
+    //     cout << "stop" << "\n";
+    //     sort(a[i].begin(), a[i].end());
+    // }
 
     double tmp = 0;
     for(int i=0; i<points.size(); i++){ 

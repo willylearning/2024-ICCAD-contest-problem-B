@@ -71,7 +71,7 @@ std::vector<MeanShift::Point> MeanShift::meanshift(const std::vector<Point> &poi
     do {
         max_shift_distance = 0;
         for(int i=0; i<points.size(); i++){
-            if (!stop_moving[i]) {
+            if (!stop_moving[i]){
                 shift_point(shifted_points[i], points, kernel_bandwidth, point_new);
                 double shift_distance_sqr = euclidean_distance_sqr(point_new, shifted_points[i]);
                 if(shift_distance_sqr > max_shift_distance){
@@ -91,7 +91,7 @@ std::vector<MeanShift::Point> MeanShift::meanshift(const std::vector<Point> &poi
 vector<Cluster> MeanShift::cluster(const std::vector<Point> &points, const std::vector<Point> &shifted_points){
     vector<Cluster> clusters;
 
-    for (int i = 0; i < shifted_points.size(); i++) {
+    for(int i = 0; i < shifted_points.size(); i++){
 
         int c = 0;
         for (; c < clusters.size(); c++) {
