@@ -24,7 +24,7 @@
 # 	rm -f $(TARGETS) *.o
 
 CXX = g++
-CXXFLAGS = -O3 -g
+CXXFLAGS = -std=c++11 -O3 -g 
 
 # 定义目标二进制文件
 TARGET = input_process
