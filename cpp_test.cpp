@@ -1,36 +1,39 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
+#include <iostream>
+#include <fstream>
+#include <sstream>
 #include "MeanShift.h"
 
 using namespace std;
 
-vector<vector<double> > load_points(const char *filename) {
-    vector<vector<double> > points;
-    FILE *fp = fopen(filename, "r");
-    char line[50];
-    while (fgets(line, sizeof(line), fp) != NULL) {
+vector<vector<double> > load_points(const char *filename, vector<string> &reg_name) {
+    vector<vector<double>> points;
+    ifstream file(filename);
+    string line;
+
+    while (getline(file, line)) {
         double x, y;
-        char *x_str = line;
-        char *y_str = line;
-        while (*y_str != '\0') {
-            if (*y_str == ',') {
-                *y_str++ = 0;
-                x = atof(x_str);
-                y = atof(y_str);
-                vector<double> point;
-                point.push_back(x);
-                point.push_back(y);
-                points.push_back(point);
-                break;
-            }
-            ++y_str;
+        string reg;
+
+        // 使用 istringstream 从行中读取 x, y 和标签信息
+        istringstream iss(line);
+        char comma;
+        if (iss >> x >> comma >> y >> reg) {
+            vector<double> point;
+            point.push_back(x);
+            point.push_back(y);
+            points.push_back(point);
+
+            // 将标签添加到 reg_name 向量中
+            reg_name.push_back(reg);
         }
     }
-    fclose(fp);
     return points;
 }
 
-void print_points(vector<vector<double> > points){
+void print_points(vector<vector<double>> points){
     for(int i=0; i<points.size(); i++){
         for(int dim = 0; dim<points[i].size(); dim++) {
             printf("%f ", points[i][dim]);
@@ -44,7 +47,9 @@ int main(int argc, char **argv)
     MeanShift *msp = new MeanShift();
     double kernel_bandwidth = 1500;
 
-    vector<vector<double> > points = load_points("test.csv");
+    vector<string> reg_name;
+    vector<vector<double>> points = load_points("testcase1.csv", reg_name);
+
     vector<Cluster> clusters = msp->cluster(points, kernel_bandwidth); // generate clustering result
 
     FILE *fp = fopen("result.csv", "w");
@@ -56,16 +61,28 @@ int main(int argc, char **argv)
     printf("\n====================\n");
     printf("Found %lu clusters\n", clusters.size());
     printf("====================\n\n");
+
+    int reg_cnt = 0;
+    cout << "reg_name size : " << reg_name.size() << "\n";
+
     for(int cluster = 0; cluster < clusters.size(); cluster++) {
       printf("Cluster %i:\n", cluster);
+      fprintf(fp, "Cluster %i:\n", cluster); // need to write clusters into result
       for(int point = 0; point < clusters[cluster].original_points.size(); point++){
-        for(int dim = 0; dim < clusters[cluster].original_points[point].size(); dim++) {
-          printf("%f ", clusters[cluster].original_points[point][dim]);
-          fprintf(fp, dim?",%f":"%f", clusters[cluster].original_points[point][dim]);
+        fprintf(fp, "%s ", reg_name[reg_cnt].c_str());
+        cout << reg_name[reg_cnt] << " ";
+        reg_cnt++;
+
+        for(int dim = 0; dim < clusters[cluster].original_points[point].size(); dim++){
+            // fprintf(fp, "%s ", reg_name[point]);
+            printf("%f ", clusters[cluster].original_points[point][dim]);
+            fprintf(fp, "%f ", clusters[cluster].original_points[point][dim]);
         }
-        printf(" -> ");
-        for(int dim = 0; dim < clusters[cluster].shifted_points[point].size(); dim++) {
-          printf("%f ", clusters[cluster].shifted_points[point][dim]);
+        printf("-> ");
+        fprintf(fp, "-> ");
+        for(int dim = 0; dim < clusters[cluster].shifted_points[point].size(); dim++){
+            printf("%f ", clusters[cluster].shifted_points[point][dim]);
+            fprintf(fp, dim?" %f":"%f", clusters[cluster].shifted_points[point][dim]);
         }
         printf("\n");
         fprintf(fp, "\n");

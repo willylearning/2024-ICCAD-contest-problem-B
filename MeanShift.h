@@ -14,7 +14,7 @@ public:
 
     MeanShift() { set_kernel(NULL); }
     MeanShift(double (*_kernel_func)(double,double)) { set_kernel(kernel_func); }
-    std::vector<Point> meanshift(const std::vector<Point> & points, double kernel_bandwidth, double EPSILON = 0.00001);
+    std::vector<Point> meanshift(const std::vector<Point> & points, double kernel_bandwidth, double EPSILON = 20);
     std::vector<Cluster> cluster(const std::vector<Point> &, double);
     std::vector<double> variable_bandwidth(const std::vector<Point> &points, double kernel_bandwidth); // define variable bandwidth
 
