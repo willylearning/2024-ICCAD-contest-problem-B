@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS = -O3 -g
+CXXFLAGS = -std=c++11 -O3 -g 
 
 # 定義目標二進制文件
 TARGETS = input_process MeanShift
