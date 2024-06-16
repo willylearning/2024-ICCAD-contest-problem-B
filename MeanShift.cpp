@@ -95,7 +95,7 @@ std::vector<MeanShift::Point> MeanShift::meanshift(const std::vector<Point> &poi
 vector<Cluster> MeanShift::cluster(const std::vector<Point> &points, const std::vector<Point> &shifted_points){
     vector<Cluster> clusters;
 
-    for (int i = 0; i < shifted_points.size(); i++) {
+    for (int i = 0; i < shifted_points.size(); i++){
 
         int c = 0;
         for (; c < clusters.size(); c++) {
@@ -150,11 +150,13 @@ vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, d
 
     double tmp = 0;
     for(int i=0; i<points.size(); i++){ 
+        tmp = alpha*a[i][M-1]; // M-th nearest points
+        var_h.push_back(min(hmax, tmp));
         // knn(Identifying Effective Neighbors)
-        if (a[i][M-1] <= hmax){
-            tmp = alpha*a[i][M-1]; // M-th nearest points
-            var_h.push_back(min(hmax, tmp));
-        }
+        // if (a[i][M-1] <= hmax){
+        //     tmp = alpha*a[i][M-1]; // M-th nearest points
+        //     var_h.push_back(min(hmax, tmp));
+        // }
     }
     return var_h;
 }
