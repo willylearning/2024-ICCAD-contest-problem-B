@@ -44,7 +44,7 @@ int main(int argc, char **argv)
     MeanShift *msp = new MeanShift();
     double kernel_bandwidth = 1500;
 
-    vector<vector<double> > points = load_points("test.csv");
+    vector<vector<double> > points = load_points("case/dense_data1.csv");
     vector<Cluster> clusters = msp->cluster(points, kernel_bandwidth); // generate clustering result
 
     FILE *fp = fopen("result.csv", "w");
