@@ -23,6 +23,14 @@ public:
         : x(x), y(y), width(width), height(height), name(name) {}
 };
 
+struct Cluster {
+    std::vector<double> mode;
+    std::vector<std::vector<double>> original_points;
+    std::vector<std::vector<double>> shifted_points;
+    std::vector<int> original_reg_idx;
+    std::vector<int> shifted_reg_idx;
+};
+
 // 定義一個 Point 結構
 struct Point {
     double x;
@@ -98,8 +106,18 @@ Point PlaceRow(vector<Box>& placement, bool k, int n) {
         //     }
         // }
     } else {
-        x = placement[n-1].x+placement[n-1].width;
-        y = placement[n-1].y+placement[n-1].height;
+        double x_next = placement[n+1].x;
+        double y_next = placement[n+1].y;
+        double x_current = placement[n].x;
+        double y_current = placement[n].y;
+        double x_previous = placement[n-1].x+placement[n-1].width;
+        double y_previous = placement[n-1].y+placement[n-1].height;
+        if(x_current+placement[n-1].width > x_next){
+            // 
+        }else {
+
+        }
+        
     }
     return Point(x, y);
 }
