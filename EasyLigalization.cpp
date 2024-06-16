@@ -33,10 +33,14 @@ void ligalization(vector<Box>& points, vector<Box>& placement, double StartPoint
         if(i == 0) {
             placement[0].x = StartPointX;
             placement[0].y = StartPointY;
-            double next = 
-            while() {
-
+            double next = placement[0].x + PlaceWidth;
+            double dis = placement[0].x + points[0].width;
+            while(int(next/dis) != 0) {
+                if(int(next/dis) == 0):
+                    break;
+                next += PlaceWidth;
             } 
+            placement[0].x_new = next;
         } else {
 
         }
