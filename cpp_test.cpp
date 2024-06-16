@@ -66,7 +66,7 @@ int main(int argc, char **argv)
     cout << "reg_name size : " << reg_name.size() << "\n";
 
     for(int cluster = 0; cluster < clusters.size(); cluster++) {
-      printf("Cluster %i:\n", cluster);
+      DBGPRN("Cluster %i:\n", cluster);
       fprintf(fp, "Cluster %i:\n", cluster); // need to write clusters into result
       for(int point = 0; point < clusters[cluster].original_points.size(); point++){
         fprintf(fp, "%s ", reg_name[reg_cnt].c_str());
