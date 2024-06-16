@@ -28,7 +28,7 @@ struct FlipFlop {
     string name;
     double width;
     double height;
-    int pinCount;
+    int pinCount; // need to record
     vector<Pin> pins;
 };
 
@@ -273,21 +273,13 @@ int main(int argc, char *argv[]) {
         }
 
         if(correspondingFlipFlop){
-            // Calculate adjusted position
-            // csvFile << instance.x << "," << instance.y << " " << instance.name << endl;
+            // Bottom-left corner of the cell push into points
             vector<double> point;
             point.push_back(instance.x);
             point.push_back(instance.y);
             points.push_back(point);
 
             reg_name.push_back(instance.name);
-        }
-    }
-    // csvFile.close();
-
-    for(int i=0; i<points.size(); i++){
-        for(int dim=0; dim<points[i].size(); dim++){
-            cout << "test : " << points[i][dim] << "\n";
         }
     }
 
@@ -308,35 +300,60 @@ int main(int argc, char *argv[]) {
     printf("====================\n\n");
 
     int reg_cnt = 0;
+    int reg_tmp = 0;
     cout << "reg_name size : " << reg_name.size() << "\n";
 
-    for(int cluster = 0; cluster < clusters.size(); cluster++) {
-      printf("Cluster %i:\n", cluster);
-      fprintf(fp, "Cluster %i:\n", cluster); // need to write clusters into result
-      for(int point = 0; point < clusters[cluster].original_points.size(); point++){
-        fprintf(fp, "%s ", reg_name[reg_cnt].c_str());
-        cout << reg_name[reg_cnt] << " ";
-        reg_cnt++;
+    for(int cluster = 0; cluster < clusters.size(); cluster++){
+        printf("Cluster %i:\n", cluster);
+        fprintf(fp, "Cluster %i:\n", cluster); // need to write clusters into result
 
-        for(int dim = 0; dim < clusters[cluster].original_points[point].size(); dim++){
-            // fprintf(fp, "%s ", reg_name[point]);
-            printf("%f ", clusters[cluster].original_points[point][dim]);
-            fprintf(fp, "%f ", clusters[cluster].original_points[point][dim]);
+        int cluster_reg_cnt = clusters[cluster].original_points.size();
+        while(cluster_reg_cnt >= 1){
+            if(cluster_reg_cnt >= 4){ // can bank into 4-bit FF
+                for(int i=0; i<4; i++){
+                    reg_cnt++;
+                    clusters[cluster].original_reg_idx.push_back(reg_cnt);
+                    clusters[cluster].shifted_reg_idx.push_back(reg_name.size() + 1 + cluster);
+                    // cout << "reg" << reg_cnt << " map reg" << reg_name.size() + 1 + cluster << " ";
+                }
+                cluster_reg_cnt -= 4;
+            }else if(cluster_reg_cnt >= 2){ // can bank into 2-bit FF
+                for(int i=0; i<2; i++){
+                    reg_cnt++;
+                    clusters[cluster].original_reg_idx.push_back(reg_cnt);
+                    clusters[cluster].shifted_reg_idx.push_back(reg_name.size() + 1 + cluster);
+                    // cout << "reg" << reg_cnt << " map reg" << reg_name.size() + 1 + cluster << " ";
+                }
+                cluster_reg_cnt -= 2;
+            }else if(cluster_reg_cnt >= 1){ // cannot bank
+                reg_cnt++;
+                clusters[cluster].original_reg_idx.push_back(reg_cnt);
+                clusters[cluster].shifted_reg_idx.push_back(reg_name.size() + 1 + cluster);
+                // cout << "reg" << reg_cnt << " map reg" << reg_name.size() + 1 + cluster << " ";
+                cluster_reg_cnt--;
+            }
         }
-        printf("-> ");
-        fprintf(fp, "-> ");
-        for(int dim = 0; dim < clusters[cluster].shifted_points[point].size(); dim++){
-            printf("%f ", clusters[cluster].shifted_points[point][dim]);
-            fprintf(fp, dim?" %f":"%f", clusters[cluster].shifted_points[point][dim]);
+
+        for(int point = 0; point < clusters[cluster].original_points.size(); point++){
+            cout << "reg" << clusters[cluster].original_reg_idx[point] << " map reg" << clusters[cluster].shifted_reg_idx[point] << " ";
+            for(int dim = 0; dim < clusters[cluster].original_points[point].size(); dim++){
+                // fprintf(fp, "%s ", reg_name[point]);
+                printf("%f ", clusters[cluster].original_points[point][dim]);
+                fprintf(fp, "%f ", clusters[cluster].original_points[point][dim]);
+            }
+            printf("-> ");
+            fprintf(fp, "-> ");
+            for(int dim = 0; dim < clusters[cluster].shifted_points[point].size(); dim++){
+                printf("%f ", clusters[cluster].shifted_points[point][dim]);
+                fprintf(fp, dim?" %f":"%f", clusters[cluster].shifted_points[point][dim]);
+            }
+            printf("\n");
+            fprintf(fp, "\n");
         }
         printf("\n");
-        fprintf(fp, "\n");
-        // fprintf("hello", "\n");
-      }
-      printf("\n");
     }
     fclose(fp);
-    
+
     return 0;
 
 }
