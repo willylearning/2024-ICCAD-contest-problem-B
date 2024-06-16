@@ -27,12 +27,16 @@ bool compareByX(const Box& a, const Box& b) {
     return a.x < b.x;
 }
 
-void ligalization(vector<Box>& points, vector<Box>& placement, double start_point, double end_point, double PlaceWidth, double PlaceHeight) {
+void ligalization(vector<Box>& points, vector<Box>& placement, double StartPointX, double StartPointY, double PlaceWidth, double PlaceHeight) {
     sort(points.begin(), points.end(), compareByX);
     for(int i = 0; i < points.size(); i++) {
         if(i == 0) {
-            placement[0].x = 
-            placement[0].y = 
+            placement[0].x = StartPointX;
+            placement[0].y = StartPointY;
+            double next = 
+            while() {
+
+            } 
         } else {
 
         }
