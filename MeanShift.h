@@ -2,6 +2,13 @@
 
 #include <vector>
 
+#define _DEBUG  1
+#if _DEBUG
+#define DBGPRN(fmt,args...)          printf(fmt, ##args)
+#else
+#define DBGPRN(fmt,args...)          ()
+#endif
+
 struct Cluster {
     std::vector<double> mode;
     std::vector<std::vector<double>> original_points;
