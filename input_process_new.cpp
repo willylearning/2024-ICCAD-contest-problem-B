@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cmath>
-// #include <cstdio>
+#include <cstdio>
 #include "MeanShift.h"
 
 using namespace std;
@@ -71,7 +71,7 @@ struct GatePower {
     double powerConsumption;
 };
 
-void plotData(const vector<PlacementRow>& diesizes) {
+void plotData(const vector<PlacementRow>& placementRows) {
     FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
 
     // if (gnuplotPipe) {
@@ -88,12 +88,14 @@ void plotData(const vector<PlacementRow>& diesizes) {
         fprintf(gnuplotPipe, "set xlabel 'X'\n");
         fprintf(gnuplotPipe, "set ylabel 'Y'\n");
         fprintf(gnuplotPipe, "set grid\n");
-        fprintf(gnuplotPipe, "plot '-' using 1:2:3 with points pt 7 palette notitle\n");
+        fprintf(gnuplotPipe, "set style data points\n");
+        fprintf(gnuplotPipe, "set palette model RGB defined ( 1 'red', 2 'blue')\n");
+        fprintf(gnuplotPipe, "plot '-' using 1:2:3 with points pt 7 lc palette notitle\n");
 
-        for (const auto& diesize : diesizes) {
-            // 输出点的数据到 GNUplot
-            fprintf(gnuplotPipe, "%f %f\n", diesize.startX, diesize.startY);
-            // fprintf(gnuplotPipe, "%f %f %d\n", diesize.x_right, diesize.y_up, 2);
+        for (const auto& row : placementRows) {
+            // 输出点的数据到 GNUplot，每个点用不同的颜色索引
+            fprintf(gnuplotPipe, "%f %f %d\n", row.startX, row.startY, 1);
+            fprintf(gnuplotPipe, "%f %f %d\n", row.startX + row.siteWidth * row.totalNumOfSites, row.startY, 2);
         }
 
         fprintf(gnuplotPipe, "e\n");  // 结束数据输入
@@ -229,6 +231,7 @@ int main(int argc, char *argv[]) {
             qpindelays.push_back(qpindelay); // Add to vector
         }
     }
+    plotData(placementRows);
 
     // Output parsed data
     cout << "Weights:" << endl;
@@ -318,77 +321,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Cluster
-    MeanShift *msp = new MeanShift();
-    double kernel_bandwidth = 1500;
-
-    vector<Cluster> clusters = msp->cluster(points, kernel_bandwidth); // generate clustering result
-
-    FILE *fp = fopen("result1.csv", "w");
-    if(!fp){
-        perror("Couldn't write result.csv");
-        exit(0);
-    }
-
-    printf("\n====================\n");
-    printf("Found %lu clusters\n", clusters.size());
-    printf("====================\n\n");
-
-    int reg_cnt = 0;
-    int reg_tmp = 0;
-    cout << "reg_name size : " << reg_name.size() << "\n";
-
-    for(int cluster = 0; cluster < clusters.size(); cluster++){
-        printf("Cluster %i:\n", cluster);
-        fprintf(fp, "Cluster %i:\n", cluster); // need to write clusters into result
-
-        int cluster_reg_cnt = clusters[cluster].original_points.size();
-        while(cluster_reg_cnt >= 1){
-            if(cluster_reg_cnt >= 4){ // can bank into 4-bit FF
-                for(int i=0; i<4; i++){
-                    reg_cnt++;
-                    clusters[cluster].original_reg_idx.push_back(reg_cnt);
-                    clusters[cluster].shifted_reg_idx.push_back(reg_name.size() + 1 + cluster);
-                    // cout << "reg" << reg_cnt << " map reg" << reg_name.size() + 1 + cluster << " ";
-                }
-                cluster_reg_cnt -= 4;
-            }else if(cluster_reg_cnt >= 2){ // can bank into 2-bit FF
-                for(int i=0; i<2; i++){
-                    reg_cnt++;
-                    clusters[cluster].original_reg_idx.push_back(reg_cnt);
-                    clusters[cluster].shifted_reg_idx.push_back(reg_name.size() + 1 + cluster);
-                    // cout << "reg" << reg_cnt << " map reg" << reg_name.size() + 1 + cluster << " ";
-                }
-                cluster_reg_cnt -= 2;
-            }else if(cluster_reg_cnt >= 1){ // cannot bank
-                reg_cnt++;
-                clusters[cluster].original_reg_idx.push_back(reg_cnt);
-                clusters[cluster].shifted_reg_idx.push_back(reg_name.size() + 1 + cluster);
-                // cout << "reg" << reg_cnt << " map reg" << reg_name.size() + 1 + cluster << " ";
-                cluster_reg_cnt--;
-            }
-        }
-
-        for(int point = 0; point < clusters[cluster].original_points.size(); point++){
-            cout << "reg" << clusters[cluster].original_reg_idx[point] << " map reg" << clusters[cluster].shifted_reg_idx[point] << " ";
-            for(int dim = 0; dim < clusters[cluster].original_points[point].size(); dim++){
-                // fprintf(fp, "%s ", reg_name[point]);
-                printf("%f ", clusters[cluster].original_points[point][dim]);
-                fprintf(fp, "%f ", clusters[cluster].original_points[point][dim]);
-            }
-            printf("-> ");
-            fprintf(fp, "-> ");
-            for(int dim = 0; dim < clusters[cluster].shifted_points[point].size(); dim++){
-                printf("%f ", clusters[cluster].shifted_points[point][dim]);
-                fprintf(fp, dim?" %f":"%f", clusters[cluster].shifted_points[point][dim]);
-            }
-            printf("\n");
-            fprintf(fp, "\n");
-        }
-        printf("\n");
-    }
-    fclose(fp);
-    plotData(placementRows);
     return 0;
 
 }
