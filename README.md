@@ -5,7 +5,7 @@ make
 
 how to run :
 ./input_process inputs/sampleCase
-./MeanShift
+./input_process inputs/testcase1_0614.txt
 
 
 how to compile cpp_test :

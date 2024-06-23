@@ -2,13 +2,13 @@
 # CXXFLAGS = -O3 -g
 
 # # 定義目標二進制文件
-# TARGETS = input_process MeanShift
+# TARGETS = input_process_original MeanShift
 
 # # 編譯所有目標
 # all: $(TARGETS)
 
 # # 編譯input_process目標
-# input_process: input_process.o
+# input_process: input_process_original.o
 # 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 # # 編譯MeanShift目標

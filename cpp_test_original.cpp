@@ -44,10 +44,10 @@ int main(int argc, char **argv)
     MeanShift *msp = new MeanShift();
     double kernel_bandwidth = 1500;
 
-    vector<vector<double> > points = load_points("case/dense_data1.csv");
-    vector<Cluster> clusters = msp->cluster(points, kernel_bandwidth); // generate clustering result
+    vector<vector<double> > points = load_points("case/sparse_data1.csv");
+    vector<Cluster> clusters = msp->cluster(points, kernel_bandwidth);
 
-    FILE *fp = fopen("result.csv", "w");
+    FILE *fp = fopen("sparse_data1_result.csv", "w");
     if(!fp){
         perror("Couldn't write result.csv");
         exit(0);
@@ -69,7 +69,6 @@ int main(int argc, char **argv)
         }
         printf("\n");
         fprintf(fp, "\n");
-        // fprintf("hello", "\n");
       }
       printf("\n");
     }

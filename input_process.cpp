@@ -32,6 +32,14 @@ struct FlipFlop {
     vector<Pin> pins;
 };
 
+struct Gate {
+    string name;
+    double width;
+    double height;
+    int pinCount; // need to record
+    vector<Pin> pins;
+};
+
 struct Instance {
     string name;
     string flipFlopName;
@@ -69,40 +77,6 @@ struct GatePower {
     double powerConsumption;
 };
 
-vector<vector<double> > load_points(const char *filename, vector<string> &reg_name) {
-    vector<vector<double>> points;
-    ifstream file(filename);
-    string line;
-
-    while (getline(file, line)) {
-        double x, y;
-        string reg;
-
-        // 使用 istringstream 从行中读取 x, y 和标签信息
-        istringstream iss(line);
-        char comma;
-        if (iss >> x >> comma >> y >> reg) {
-            vector<double> point;
-            point.push_back(x);
-            point.push_back(y);
-            points.push_back(point);
-
-            // 将标签添加到 reg_name 向量中
-            reg_name.push_back(reg);
-        }
-    }
-    return points;
-}
-
-void print_points(vector<vector<double> > points){
-    for(int i=0; i<points.size(); i++){
-        for(int dim = 0; dim<points[i].size(); dim++) {
-            printf("%f ", points[i][dim]);
-        }
-        printf("\n");
-    }
-}
-
 int main(int argc, char *argv[]) {
     ifstream file(argv[1]);
     string line;
@@ -112,6 +86,7 @@ int main(int argc, char *argv[]) {
     vector<Pin> inputPins;
     vector<Pin> outputPins;
     vector<FlipFlop> flipFlops;
+    vector<Gate> gates;
     vector<Instance> instances;
     vector<Net> nets;
     double binWidth = 0;
@@ -154,6 +129,18 @@ int main(int argc, char *argv[]) {
                 flipFlop.pins.push_back(pin);
             }
             flipFlops.push_back(flipFlop);
+        } else if (key == "Gate") {
+            Gate gate;
+            iss >> gate.name >> gate.width >> gate.height >> gate.pinCount;
+            for (int i = 0; i < gate.pinCount; ++i) {
+                getline(file, line);
+                istringstream pinIss(line);
+                Pin pin;
+                string type;
+                pinIss >> type >> pin.name >> pin.x >> pin.y;
+                gate.pins.push_back(pin);
+            }
+            gates.push_back(gate);
         } else if (key == "Inst") {
             Instance instance;
             iss >> instance.name >> instance.flipFlopName >> instance.x >> instance.y; // read instance
@@ -220,6 +207,16 @@ int main(int argc, char *argv[]) {
         cout << "bits: " << flipflop.bits << ", name: " << flipflop.name << ", width: " << flipflop.width << ", height: " << flipflop.height << endl;
         cout << "Pins:" << endl;
         for (const auto& pin : flipflop.pins) {
+            cout << "Name: " << pin.name << ", X: " << pin.x << ", Y: " << pin.y << endl;
+        }
+    }
+
+    cout << "\nGate:" << endl;
+
+    for (const auto& gate : gates) {
+        cout << ", name: " << gate.name << ", width: " << gate.width << ", height: " << gate.height << endl;
+        cout << "Pins:" << endl;
+        for (const auto& pin : gate.pins) {
             cout << "Name: " << pin.name << ", X: " << pin.x << ", Y: " << pin.y << endl;
         }
     }
