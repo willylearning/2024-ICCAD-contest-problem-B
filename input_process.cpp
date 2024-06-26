@@ -41,8 +41,8 @@ struct Gate {
 };
 
 struct Instance {
-    string name;
-    string flipFlopName;
+    string inst_name;
+    string type_name;
     double x;
     double y;
 };
@@ -98,6 +98,9 @@ int main(int argc, char *argv[]) {
     diesize size;
     vector<Qpindelay> qpindelays; // Change to vector
 
+    // map< pair<double, double>, pair<string, string> > inst_map;
+    map<string, int> ffname_bits_map;
+
     while (getline(file, line)) {
         istringstream iss(line);
         string key;
@@ -120,6 +123,9 @@ int main(int argc, char *argv[]) {
         } else if (key == "FlipFlop") {
             FlipFlop flipFlop;
             iss >> flipFlop.bits >> flipFlop.name >> flipFlop.width >> flipFlop.height >> flipFlop.pinCount;
+            // fill in ffname_bits_map
+            ffname_bits_map[flipFlop.name] = flipFlop.bits;
+            // deal with each pin
             for (int i = 0; i < flipFlop.pinCount; ++i) {
                 getline(file, line);
                 istringstream pinIss(line);
@@ -143,7 +149,10 @@ int main(int argc, char *argv[]) {
             gates.push_back(gate);
         } else if (key == "Inst") {
             Instance instance;
-            iss >> instance.name >> instance.flipFlopName >> instance.x >> instance.y; // read instance
+            iss >> instance.inst_name >> instance.type_name >> instance.x >> instance.y; // read instance
+            // fill in the lookup table for instance
+            // pair<double, double> inst_coordinate = make_pair(instance.x, instance.y);
+            // inst_map[inst_coordinate] = make_pair(instance.inst_name, instance.type_name);
             instances.push_back(instance);
         } else if (key == "Net") {
             Net net;
@@ -223,7 +232,8 @@ int main(int argc, char *argv[]) {
 
     cout << "\nInstances:" << endl;
     for (const auto& instance : instances) {
-        cout << "Name: " << instance.name << ", FlipFlop Name: " << instance.flipFlopName << ", X: " << instance.x << ", Y: " << instance.y << endl;
+        cout << "Name: " << instance.inst_name << ", FlipFlop Name: " << instance.type_name << ", X: " << instance.x << ", Y: " << instance.y << endl;
+        
     }
 
     cout << "\nNets:" << endl;
@@ -239,8 +249,6 @@ int main(int argc, char *argv[]) {
     for (const auto& delay : qpindelays) {
         cout << "flipflopname: " << delay.flipflopname << ", value: " << delay.value << endl;
     }
-    
-    
 
     cout << "\nTimingSlacks:" << endl;
     for (const auto& timingSlack : timingSlacks) {
@@ -261,49 +269,43 @@ int main(int argc, char *argv[]) {
     // ofstream csvFile("testcase1.csv");
     for(const auto& instance : instances){
         // Find the corresponding FlipFlop
-        FlipFlop* correspondingFlipFlop = nullptr;
-        for (auto& flipFlop : flipFlops) {
-            if (flipFlop.name == instance.flipFlopName) {
-                correspondingFlipFlop = &flipFlop;
-                break;
+        for(auto& flipFlop : flipFlops){
+            if(instance.type_name == flipFlop.name){
+                // Bottom-left corner of the cell push into points
+                vector<double> point;
+                point.push_back(instance.x);
+                point.push_back(instance.y);
+                points.push_back(point);
+                reg_name.push_back(instance.inst_name);
             }
-        }
-
-        if(correspondingFlipFlop){
-            // Bottom-left corner of the cell push into points
-            vector<double> point;
-            point.push_back(instance.x);
-            point.push_back(instance.y);
-            points.push_back(point);
-
-            reg_name.push_back(instance.name);
         }
     }
 
     // Cluster
     MeanShift *msp = new MeanShift();
-    double kernel_bandwidth = 1500;
+    double kernel_bandwidth = 10;
 
     vector<Cluster> clusters = msp->cluster(points, kernel_bandwidth); // generate clustering result
 
-    FILE *fp = fopen("result1.csv", "w");
-    if(!fp){
+    ofstream fout("result.csv");
+    if(!fout){
         perror("Couldn't write result.csv");
         exit(0);
     }
 
-    printf("\n====================\n");
-    printf("Found %lu clusters\n", clusters.size());
-    printf("====================\n\n");
+    cout << "\n====================\n";
+    cout << "Found " << clusters.size() <<" clusters\n";
+    cout << "====================\n\n";
 
     int reg_cnt = 0;
     int reg_tmp = 0;
     cout << "reg_name size : " << reg_name.size() << "\n";
 
     for(int cluster = 0; cluster < clusters.size(); cluster++){
-        printf("Cluster %i:\n", cluster);
-        fprintf(fp, "Cluster %i:\n", cluster); // need to write clusters into result
+        cout << "Cluster " << cluster << ":\n";
+        fout << "Cluster " << cluster << ":\n";
 
+        // banking process
         int cluster_reg_cnt = clusters[cluster].original_points.size();
         while(cluster_reg_cnt >= 1){
             if(cluster_reg_cnt >= 4){ // can bank into 4-bit FF
@@ -330,26 +332,34 @@ int main(int argc, char *argv[]) {
                 cluster_reg_cnt--;
             }
         }
-
+        // construct a map between original_points[point] and its reg_type
         for(int point = 0; point < clusters[cluster].original_points.size(); point++){
-            cout << "reg" << clusters[cluster].original_reg_idx[point] << " map reg" << clusters[cluster].shifted_reg_idx[point] << " ";
+            // cout << "reg" << clusters[cluster].original_reg_idx[point] << " map reg" << clusters[cluster].shifted_reg_idx[point] << " ";
+            // check which inst_name the point corresponds to in instances
+            for(const auto& instance : instances){
+                if(clusters[cluster].original_points[point][0] == instance.x && clusters[cluster].original_points[point][1] == instance.y){
+                    cout << instance.inst_name << " map reg" << clusters[cluster].shifted_reg_idx[point] << " ";
+                }
+            }
+
             for(int dim = 0; dim < clusters[cluster].original_points[point].size(); dim++){
-                // fprintf(fp, "%s ", reg_name[point]);
-                printf("%f ", clusters[cluster].original_points[point][dim]);
-                fprintf(fp, "%f ", clusters[cluster].original_points[point][dim]);
+                cout << clusters[cluster].original_points[point][dim] << " ";
+                fout << clusters[cluster].original_points[point][dim] << " ";
             }
-            printf("-> ");
-            fprintf(fp, "-> ");
+
+            cout << "-> ";
+            fout << "-> ";
+
             for(int dim = 0; dim < clusters[cluster].shifted_points[point].size(); dim++){
-                printf("%f ", clusters[cluster].shifted_points[point][dim]);
-                fprintf(fp, dim?" %f":"%f", clusters[cluster].shifted_points[point][dim]);
+                cout << clusters[cluster].shifted_points[point][dim] << " ";
+                fout << clusters[cluster].shifted_points[point][dim] << " ";
             }
-            printf("\n");
-            fprintf(fp, "\n");
+            cout << "\n";
+            fout << "\n";
         }
-        printf("\n");
+        cout << "\n";
     }
-    fclose(fp);
+    fout.close();
 
     return 0;
 
