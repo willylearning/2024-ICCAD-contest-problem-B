@@ -12,6 +12,16 @@
 
 using namespace std;
 
+map<string, string> lines;
+map<string, string> opplines;
+
+struct connection {
+    double x_left;
+    double y_bottom;
+    double x_right;
+    double y_up;
+};
+
 struct diesize {
     double x_left;
     double y_bottom;
@@ -158,6 +168,17 @@ double CostCount(vector<FlipFlop>& flipFlops, map<string, double> &weights) {
     return cost;
 }
 
+void parsePin(const std::string& pinStr, std::string& instName, std::string& libPinName) {
+    size_t pos = pinStr.find('/');
+    if (pos != std::string::npos) {
+        instName = pinStr.substr(0, pos);
+        libPinName = pinStr.substr(pos + 1);
+    } else {
+        instName = pinStr;
+        libPinName = "";
+    }
+}
+
 int main(int argc, char *argv[]) {
     ifstream file(argv[1]);
     string line;
@@ -228,7 +249,16 @@ int main(int argc, char *argv[]) {
                 istringstream pinIss(line);
                 string pin;
                 string connect;
+                string instName;
+                string libPinName;
                 pinIss >> pin >> connect;
+                // size_t pos = connect.find('/');
+                // cout << "pin " << pin << "connect " << connect << "\n";
+                parsePin(connect, instName, libPinName);
+                // cout << "instName " << instName << " libPinName " << libPinName << " libPinNamelength "<< libPinName.length() <<"\n";
+                lines.emplace(instName, libPinName);
+                opplines.emplace(instName, libPinName);
+                net.pins.push_back(pin);
                 net.pins.push_back(connect);
             }
             nets.push_back(net);
