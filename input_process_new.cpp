@@ -32,6 +32,8 @@ struct FlipFlop {
     double height;
     int pinCount; // need to record
     vector<Pin> pins;
+    double Qpindelay;
+    double GatePower;
 };
 
 struct Instance {
@@ -55,10 +57,10 @@ struct PlacementRow {
     int totalNumOfSites;
 };
 
-struct Qpindelay {
-    string flipflopname;
-    double value;
-};
+// struct Qpindelay {
+//     string flipflopname;
+//     double value;
+// };
 
 struct TimingSlack {
     string instanceCellName;
@@ -66,45 +68,47 @@ struct TimingSlack {
     double slack;
 };
 
-struct GatePower {
-    string libCellName;
-    double powerConsumption;
-};
+// struct GatePower {
+//     string libCellName;
+//     double powerConsumption;
+// };
 
-void plotData(const vector<PlacementRow>& placementRows) {
-    FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
+// void plotData(const vector<PlacementRow>& placementRows) {
+//     FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
 
-    // if (gnuplotPipe) {
-    //     fprintf(gnuplotPipe, "set title 'Sine Wave'\n");
-    //     fprintf(gnuplotPipe, "set xlabel 'X'\n");
-    //     fprintf(gnuplotPipe, "set ylabel 'Y'\n");
-    //     fprintf(gnuplotPipe, "plot '-' with lines title 'sin(x)'\n");
+//     // if (gnuplotPipe) {
+//     //     fprintf(gnuplotPipe, "set title 'Sine Wave'\n");
+//     //     fprintf(gnuplotPipe, "set xlabel 'X'\n");
+//     //     fprintf(gnuplotPipe, "set ylabel 'Y'\n");
+//     //     fprintf(gnuplotPipe, "plot '-' with lines title 'sin(x)'\n");
 
-    //     for (size_t i = 0; i < x.size(); ++i) {
-    //         fprintf(gnuplotPipe, "%f %f\n", x[i], y[i]);
-    //     }
-    if (gnuplotPipe) {
-        fprintf(gnuplotPipe, "set title 'Diesize Points'\n");
-        fprintf(gnuplotPipe, "set xlabel 'X'\n");
-        fprintf(gnuplotPipe, "set ylabel 'Y'\n");
-        fprintf(gnuplotPipe, "set grid\n");
-        fprintf(gnuplotPipe, "set style data points\n");
-        fprintf(gnuplotPipe, "set palette model RGB defined ( 1 'red', 2 'blue')\n");
-        fprintf(gnuplotPipe, "plot '-' using 1:2:3 with points pt 7 lc palette notitle\n");
+//     //     for (size_t i = 0; i < x.size(); ++i) {
+//     //         fprintf(gnuplotPipe, "%f %f\n", x[i], y[i]);
+//     //     }
+//     if (gnuplotPipe) {
+//         fprintf(gnuplotPipe, "set title 'Placement Points'\n");
+//         fprintf(gnuplotPipe, "set xlabel 'X'\n");
+//         fprintf(gnuplotPipe, "set ylabel 'Y'\n");
+//         fprintf(gnuplotPipe, "set grid\n");
+//         fprintf(gnuplotPipe, "set style data points\n");
+//         fprintf(gnuplotPipe, "set palette model RGB defined ( 1 'red', 2 'blue')\n");
+//         fprintf(gnuplotPipe, "plot '-' using 1:2:3 with points pt 7 lc palette notitle\n");
 
-        for (const auto& row : placementRows) {
-            // 输出点的数据到 GNUplot，每个点用不同的颜色索引
-            fprintf(gnuplotPipe, "%f %f %d\n", row.startX, row.startY, 1);
-            fprintf(gnuplotPipe, "%f %f %d\n", row.startX + row.siteWidth * row.totalNumOfSites, row.startY, 2);
-        }
+//         for (const auto& row : placementRows) {
+//             for (int i = 0; i < row.totalNumOfSites; ++i) {
+//                 double x = row.startX + i * row.siteWidth;
+//                 double y = row.startY;
+//                 fprintf(gnuplotPipe, "%f %f %d\n", x, y, 1);
+//             }
+//         }
 
-        fprintf(gnuplotPipe, "e\n");  // 结束数据输入
-        fflush(gnuplotPipe);          // 确保所有数据已写入
-        pclose(gnuplotPipe);          // 关闭 gnuplot 管道
-    } else {
-        cerr << "Error: Could not open gnuplot pipe.\n";
-    }
-}
+//         fprintf(gnuplotPipe, "e\n");  // 结束数据输入
+//         fflush(gnuplotPipe);          // 确保所有数据已写入
+//         pclose(gnuplotPipe);          // 关闭 gnuplot 管道
+//     } else {
+//         cerr << "Error: Could not open gnuplot pipe.\n";
+//     }
+// }
 
 vector<vector<double> > load_points(const char *filename, vector<string> &reg_name) {
     vector<vector<double>> points;
@@ -140,6 +144,20 @@ void print_points(vector<vector<double> > points){
     }
 }
 
+double CostCount(vector<FlipFlop>& flipFlops, map<string, double> &weights) {
+    double cost = 0;
+    double cost_a = 0;
+    double cost_b = 0;
+    double cost_r = 0;
+    // double cost_r = 0;
+    for(auto& flipFlop : flipFlops) {
+        cost_a += flipFlop.Qpindelay;
+        cost_b += flipFlop.GatePower;
+    }
+    cost = cost_a*weights["Alpha"] + cost_b*weights["Beta"];
+    return cost;
+}
+
 int main(int argc, char *argv[]) {
     ifstream file(argv[1]);
     string line;
@@ -156,10 +174,17 @@ int main(int argc, char *argv[]) {
     double binMaxUtil = 0;
     vector<PlacementRow> placementRows;
     vector<TimingSlack> timingSlacks;
-    vector<GatePower> gatePowers;
+    // vector<GatePower> gatePowers;
     diesize size;
-    vector<Qpindelay> qpindelays; // Change to vector
+    // vector<Qpindelay> qpindelays; // Change to vector
     
+    // get the information of ff
+    int tnsCount = 0;
+    int powerCount = 0;
+    string flipflopname;
+    double value;
+    double cost = 0;
+
     while (getline(file, line)) {
         istringstream iss(line);
         string key;
@@ -222,81 +247,26 @@ int main(int argc, char *argv[]) {
             iss >> timingSlack.instanceCellName >> timingSlack.pinName >> timingSlack.slack;
             timingSlacks.push_back(timingSlack);
         } else if (key == "GatePower") {
-            GatePower gatePower;
-            iss >> gatePower.libCellName >> gatePower.powerConsumption;
-            gatePowers.push_back(gatePower);
+            // GatePower gatePower;
+            // iss >> gatePower.libCellName >> gatePower.powerConsumption;
+            // gatePowers.push_back(gatePower);
+            iss >> flipflopname >> value;
+            if(flipflopname == flipFlops[powerCount].name) {
+                flipFlops[powerCount].GatePower = value;
+                powerCount++;
+            }
         } else if (key == "QpinDelay") {
-            Qpindelay qpindelay;
-            iss >> qpindelay.flipflopname >> qpindelay.value;
-            qpindelays.push_back(qpindelay); // Add to vector
+            // Qpindelay qpindelay;
+            // iss >> qpindelay.flipflopname >> qpindelay.value;
+            // qpindelays.push_back(qpindelay); // Add to vector
+            iss >> flipflopname >> value;
+            if (flipflopname == flipFlops[tnsCount].name){
+                flipFlops[tnsCount].Qpindelay = value;
+                tnsCount++;
+            }
         }
     }
-    plotData(placementRows);
-
-    // Output parsed data
-    cout << "Weights:" << endl;
-    for (const auto& pair : weights) {
-        cout << pair.first << ": " << pair.second << endl;
-    }
-
-    cout << "\ndiesize:" << endl;
-    cout << "x_left : "<< size.x_left << ", y_bottom : "<< size.y_bottom <<", x_right : "<< size.x_right <<", y_up : "<< size.y_up << endl;
-
-    cout << "\nInput Pins:" << endl;
-    for (const auto& pin : inputPins) {
-        cout << "Name: " << pin.name << ", X: " << pin.x << ", Y: " << pin.y << endl;
-    }
-
-    cout << "\nOutput Pins:" << endl;
-    for (const auto& pin : outputPins) {
-        cout << "Name: " << pin.name << ", X: " << pin.x << ", Y: " << pin.y << endl;
-    }
-
-    cout << "\nFlipflop:" << endl;
-
-    for (const auto& flipflop : flipFlops) {
-        cout << "bits: " << flipflop.bits << ", name: " << flipflop.name << ", width: " << flipflop.width << ", height: " << flipflop.height << endl;
-        cout << "Pins:" << endl;
-        for (const auto& pin : flipflop.pins) {
-            cout << "Name: " << pin.name << ", X: " << pin.x << ", Y: " << pin.y << endl;
-        }
-    }
-
-    cout << "\nInstances:" << endl;
-    for (const auto& instance : instances) {
-        cout << "Name: " << instance.name << ", FlipFlop Name: " << instance.flipFlopName << ", X: " << instance.x << ", Y: " << instance.y << endl;
-    }
-
-    cout << "\nNets:" << endl;
-    for (const auto& net : nets) {
-        cout << "Name: " << net.name << ", Number of Pins: " << net.numPins << endl;
-        cout << "Pins:" << endl;
-        for (const auto& pin : net.pins) {
-            cout << "   " << pin << endl;
-        }
-    }
-
-    cout << "\nQpinDelay:" << endl;
-    for (const auto& delay : qpindelays) {
-        cout << "flipflopname: " << delay.flipflopname << ", value: " << delay.value << endl;
-    }
-    
-    
-
-    cout << "\nTimingSlacks:" << endl;
-    for (const auto& timingSlack : timingSlacks) {
-        cout << "Instance Cell Name: " << timingSlack.instanceCellName << ", Pin Name: " << timingSlack.pinName << ", Slack: " << timingSlack.slack << endl;
-    }
-
-    cout << "\nGatePowers:" << endl;
-    for (const auto& gatePower : gatePowers) {
-        cout << "Library Cell Name: " << gatePower.libCellName << ", Power Consumption: " << gatePower.powerConsumption << endl;
-    }
-
-    cout << "\nBinWidth:"<< binWidth << endl;
-    cout << "BinHeight:"<< binHeight << endl;
-    cout << "BinMaxUtil:"<< binMaxUtil << endl;
-
+    // plotData(placementRows);
     vector<vector<double>> points;
     vector<string> reg_name;
     // ofstream csvFile("testcase1.csv");
@@ -320,7 +290,8 @@ int main(int argc, char *argv[]) {
             reg_name.push_back(instance.name);
         }
     }
-
+    cost = CostCount(flipFlops, weights);
+    cout << "\nCost: "<< binWidth << endl;
     return 0;
 
 }

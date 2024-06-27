@@ -39,25 +39,69 @@ void MeanShift::set_kernel( double (*_kernel_func)(double,double)){
         kernel_func = _kernel_func;    
     }
 }
+bool cmp(pair<double, int> a, pair<double, int> b){
+    return a.first < b.first;
+}
 
 void MeanShift::shift_point(const Point &point, const std::vector<Point> &points, double kernel_bandwidth, Point &shifted_point) {
     // point : current center point, points : all data points
+    double hmax = 100000; // need to be tested how big it should be
+    int K = 2; // need to be tested how big it should be
     vector<double> var_h = variable_bandwidth(points, kernel_bandwidth);
     shifted_point.resize(point.size());
     for(int dim = 0; dim<shifted_point.size(); dim++){
         shifted_point[dim] = 0;
     }
     double total_weight = 0;
-    for(int i=0; i<points.size(); i++){
-        const Point& temp_point = points[i];
+
+    // Identifying Effective Neighbors by KNN
+    vector<pair<double, int>> dist_from_point;
+    for(int i = 0; i < points.size(); ++i){
+        if(points[i] != point){
+            double distance = euclidean_distance(points[i], point);
+            dist_from_point.push_back(make_pair(distance, i));
+            // cout << points[i][0] << endl;
+        }  
+    }
+
+    sort(dist_from_point.begin(), dist_from_point.end(), cmp); // sort dist_from_point by distance
+    // cout << points[0][0] << endl;
+
+    vector<double> effective_var_h;
+    vector<Point> effective_neighbors;
+    for(int i=0; i<K; i++){ 
+        // cout << "t1 " << dist_from_point[i].first << ", " << hmax << endl;
+        if(dist_from_point[i].first <= hmax){ // if the neighbor's distance > hmax => excluded neighbor
+            effective_neighbors.push_back(points[dist_from_point[i].second]);
+            effective_var_h.push_back(var_h[dist_from_point[i].second]);
+            // cout << "t2 " << effective_neighbors[i][0] << endl;
+        }
+    }
+
+    for(int i=0; i<effective_neighbors.size(); i++){
+        const Point& temp_point = effective_neighbors[i];
         double distance = euclidean_distance(point, temp_point);
         // 核函数（如高斯核）計算了每個點的權重，这些權重用於計算當前點的移動方向和距離。這個過程實際上就是在計算梯度
-        double weight = kernel_func(distance, var_h[i]); // change to variable bandwidth
+        double weight = kernel_func(distance, effective_var_h[i]); // change to variable bandwidth
+
         for(int j=0; j<shifted_point.size(); j++){
             shifted_point[j] += temp_point[j] * weight;
+            // cout << shifted_point[j] << endl;
         }
         total_weight += weight;
     }
+    
+    // Original version
+    // for(int i=0; i<points.size(); i++){
+    //     const Point& temp_point = points[i];
+    //     double distance = euclidean_distance(point, temp_point);
+    //     // 核函数（如高斯核）計算了每個點的權重，这些權重用於計算當前點的移動方向和距離。这个過程實際上就是在計算梯度
+    //     double weight = kernel_func(distance, var_h[i]); // change to variable bandwidth
+    //     for(int j=0; j<shifted_point.size(); j++){
+    //         shifted_point[j] += temp_point[j] * weight;
+    //     }
+    //     total_weight += weight;
+    // }
 
     const double total_weight_inv = 1.0/total_weight;
     // knn function
@@ -87,15 +131,15 @@ std::vector<MeanShift::Point> MeanShift::meanshift(const std::vector<Point> &poi
                 shifted_points[i] = point_new;
             }
         }
-        // printf("max_shift_distance: %f\n", sqrt(max_shift_distance));
-    } while (max_shift_distance > EPSILON_SQR);
+        printf("max_shift_distance: %f\n", sqrt(max_shift_distance));
+    }while (max_shift_distance > EPSILON_SQR);
     return shifted_points;
 }
 
 vector<Cluster> MeanShift::cluster(const std::vector<Point> &points, const std::vector<Point> &shifted_points){
     vector<Cluster> clusters;
 
-    for (int i = 0; i < shifted_points.size(); i++) {
+    for (int i = 0; i < shifted_points.size(); i++){
 
         int c = 0;
         for (; c < clusters.size(); c++) {
@@ -123,12 +167,12 @@ vector<Cluster> MeanShift::cluster(const std::vector<Point> &points, double kern
 }
 
 vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, double kernel_bandwidth){ // Point is vector<double>
-    vector<Point> a(points.size());
+    vector<Point> a(points.size()); // distances between every point and points[i] 
     vector<double> var_h;
-    double hmax = 1500; // need to be tested how big it should be
+    double hmax = 100000; // need to be tested how big it should be
     int alpha = 5; // need to be determined
     int M = 2;
-    double m = DBL_MAX;
+
     // find the M-th nearest neighbor of every point in points
     for(int i=0; i<points.size(); i++){
         for(int j=0; j<points.size(); j++){
@@ -139,26 +183,16 @@ vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, d
         }
         sort(a[i].begin(), a[i].end());
     }
-
-    // for(int i=0; i< a.size(); i++){
-    //     for(int j=0; j< a[i].size(); j++){
-    //         cout << a[i][j] << "\n";
-    //     }
-    //     cout << "stop" << "\n";
-    //     sort(a[i].begin(), a[i].end());
-    // }
-
-
     double tmp = 0;
     for(int i=0; i<points.size(); i++){ 
-        // knn(Identifying Effective Neighbors)
-        if (a[i][M-1] <= hmax){
-            tmp = alpha*a[i][M-1]; // M-th nearest points
-            var_h.push_back(min(hmax, tmp));
-        }
+        tmp = alpha*a[i][M-1]; // M-th nearest points
+        var_h.push_back(min(hmax, tmp));
     }
+
     return var_h;
 }
+
+
 
 void MeanShift::legalization(const std::vector<Point> &points, const std::vector<Point> &shifted_point){
     for(int i = 0; i<points.size(); i++) {
