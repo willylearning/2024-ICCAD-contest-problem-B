@@ -389,9 +389,9 @@ int main(int argc, char *argv[]) {
                 istringstream NetIss(line);
                 // map<string, Net> connectionline;
                 // map<int, map<string, Net>> connectionlineNum;
-                NetIss >> name;
+                NetIss >> key;
                 // cout << name << "\n";
-                if (name == "Net") {
+                if (key == "Net") {
                     Net net;
                     NetIss >> net.name >> net.numPins;
                     // cout << net.name << net.numPins << "\n";
@@ -425,7 +425,7 @@ int main(int argc, char *argv[]) {
                         } else {
                             pinIss >> firstpin >> firstconnect;
                             parsePin(firstconnect, firstinstName, firstlibPinName);
-
+                            name = firstinstName;
                             net.pins.push_back(firstpin);
                             net.pins.push_back(firstconnect);
                             newNet.firstPin.firstInstance = firstinstName;
@@ -435,7 +435,7 @@ int main(int argc, char *argv[]) {
                     nets.push_back(net);
                 }
             connectionline.emplace(j, newNet);
-            // bfsconnectionline.emplace(, newNet);
+            // bfsconnectionline.emplace(name, newNet);
             }
         } else if (key == "BinWidth") {
             iss >> binWidth;
