@@ -42,15 +42,20 @@ struct FlipFlop {
     double height;
     int pinCount; // need to record
     vector<Pin> pins;
+    vector<Pin> shifted_pins;
     double Qpindelay;
     double GatePower;
 };
+
+
 
 struct Instance {
     string name;
     string flipFlopName;
     double x;
     double y;
+    double shiftedx;
+    double shiftedy;
 };
 
 struct Net {
@@ -179,6 +184,76 @@ void parsePin(const std::string& pinStr, std::string& instName, std::string& lib
     }
 }
 
+void printFlipFlops(const std::map<std::string, FlipFlop>& flipFlops) {
+    for (const auto& pair : flipFlops) {
+        const FlipFlop& ff = pair.second;
+        std::cout << "FlipFlop: " << ff.name << ", ";
+        std::cout << "  Bits: " << ff.bits << ", ";
+        std::cout << "  Width: " << ff.width << ", ";
+        std::cout << "  Height: " << ff.height << ", ";
+        std::cout << "  Pin Count: " << ff.pinCount << ", ";
+        std::cout << "  Pins:, ";
+        for (const auto& pin : ff.pins) {
+            std::cout << "    Name: " << pin.name << ", X: " << pin.x << ", Y: " << pin.y << "\n";
+        }
+    }
+}
+
+// void printFinalFlipFlops(const std::map<string, vector<Instance>> outInstance) {
+//     for (const auto& pair : outInstance) {
+//         std::cout << "Inst " << ff.name << ", ";
+//         std::cout << "  Bits: " << ff.bits << ", ";
+//         std::cout << "  Width: " << ff.width << ", ";
+//         std::cout << "  Height: " << ff.height << ", ";
+//         std::cout << "  Pin Count: " << ff.pinCount << ", ";
+//         std::cout << "  Pins:, ";
+//     }
+// }
+
+void printOutInstance(const std::map<std::string, Instance>& outInstance) {
+    for (const auto& pair : outInstance) {
+        const std::string& key = pair.first;
+        const Instance& instance = pair.second;
+        // const Instance& ff = pair.second;
+        // std::cout << "Key: " << key << "\n";
+        std::cout << "Inst " ;
+        std::cout << instance.name;
+        std::cout << " " << instance.flipFlopName;
+        std::cout << " " << instance.x << " " << instance.y << "\n";
+        // std::cout << "  Shifted X: " << instance.shiftedx << ", Shifted Y: " << instance.shiftedy << "\n";
+        
+    }
+}
+// void printOutInstances(const std::map<std::string, Instance>& outInstance) {
+//     for (const auto& pair : outInstance) {
+//         const std::string& key = pair.first;
+//         const Instance& instance = pair.second;
+
+//         std::cout << "FlipFlop Name: " << key << std::endl;
+//         std::cout << "  Instance Name: " << instance.name << std::endl;
+//         std::cout << "  X: " << instance.x << std::endl;
+//         std::cout << "  Y: " << instance.y << std::endl;
+//         std::cout << "  Shifted X: " << instance.shiftedx << std::endl;
+//         std::cout << "  Shifted Y: " << instance.shiftedy << std::endl;
+//         std::cout << std::endl;
+//     }
+// }
+
+void printNet(const vector<Net> &nets) {
+    // cout << "Net Name: " << net.name << endl;
+    // cout << "Number of Pins: " << net.numPins << endl;
+    // cout << "Pins:" << endl;
+    for (int i=0; i < nets.size(); ++i){
+        for (const auto& pin1 : nets[i].pins) {
+            // cout << "  " << pin << endl;
+            for (const auto& pin2 : nets[i].pins) {
+                if (pin1!=pin2) 
+                    cout << pin1 <<" map " << pin2 << endl;
+            }
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     ifstream file(argv[1]);
     string line;
@@ -187,7 +262,7 @@ int main(int argc, char *argv[]) {
     map<string, double> weights;
     vector<Pin> inputPins;
     vector<Pin> outputPins;
-    vector<FlipFlop> flipFlops;
+    // vector<FlipFlop> flipFlops;
     vector<Instance> instances;
     vector<Net> nets;
     double binWidth = 0;
@@ -203,8 +278,15 @@ int main(int argc, char *argv[]) {
     int tnsCount = 0;
     int powerCount = 0;
     string flipflopname;
+    string name;
     double value;
     double cost = 0;
+
+    map<string, vector<Net>> connectionline;
+    map<int, map<string, vector<Net>>> connectionlineNum;
+    map<string, FlipFlop> FlipFlops;
+    map<string, Instance> outInstance;
+    // map<string,> finalConnectionLine;
 
     while (getline(file, line)) {
         istringstream iss(line);
@@ -226,24 +308,38 @@ int main(int argc, char *argv[]) {
             iss >> pin.name >> pin.x >> pin.y;
             outputPins.push_back(pin);
         } else if (key == "FlipFlop") {
-            FlipFlop flipFlop;
-            iss >> flipFlop.bits >> flipFlop.name >> flipFlop.width >> flipFlop.height >> flipFlop.pinCount;
-            for (int i = 0; i < flipFlop.pinCount; ++i) {
+            FlipFlop ff;
+            iss >> ff.bits >> ff.name >> ff.width >> ff.height >> ff.pinCount;
+            for (int i = 0; i < ff.pinCount; ++i) {
                 getline(file, line);
                 istringstream pinIss(line);
                 Pin pin;
                 string type;
                 pinIss >> type >> pin.name >> pin.x >> pin.y;
-                flipFlop.pins.push_back(pin);
+                ff.pins.push_back(pin);
+                FlipFlops.emplace(ff.name, ff);
             }
-            flipFlops.push_back(flipFlop);
+            // flipFlops.push_back(flipFlop);
         } else if (key == "Inst") {
             Instance instance;
             iss >> instance.name >> instance.flipFlopName >> instance.x >> instance.y; // read instance
             instances.push_back(instance);
-        } else if (key == "Net") {
+            outInstance.emplace(instance.flipFlopName, instance);
+        } else if (key == "NumNets") {
+            // cout << key << "\n";
+            iss >> value;
+            // cout << value << "\n";
+            for (int j = 0; j < value; ++j) {
+            getline(file, line);
+            istringstream NetIss(line);
+            // map<string, vector<Net>> connectionline;
+            // map<int, map<string, vector<Net>>> connectionlineNum;
+            NetIss >> name;
+            // cout << name << "\n";
+            if (name == "Net") {
             Net net;
-            iss >> net.name >> net.numPins;
+            NetIss >> net.name >> net.numPins;
+            // cout << net.name << net.numPins << "\n";
             for (int i = 0; i < net.numPins; ++i) {
                 getline(file, line);
                 istringstream pinIss(line);
@@ -262,6 +358,9 @@ int main(int argc, char *argv[]) {
                 net.pins.push_back(connect);
             }
             nets.push_back(net);
+            }
+            // connectionlineNum.emplace(j, connectionline);
+            }
         } else if (key == "BinWidth") {
             iss >> binWidth;
         } else if (key == "BinHeight") {
@@ -281,19 +380,21 @@ int main(int argc, char *argv[]) {
             // iss >> gatePower.libCellName >> gatePower.powerConsumption;
             // gatePowers.push_back(gatePower);
             iss >> flipflopname >> value;
-            if(flipflopname == flipFlops[powerCount].name) {
-                flipFlops[powerCount].GatePower = value;
-                powerCount++;
-            }
+            // if(flipflopname == flipFlops[powerCount].name) {
+            //     flipFlops[powerCount].GatePower = value;
+            //     powerCount++;
+            // }
+            FlipFlops[flipflopname].GatePower = value;
         } else if (key == "QpinDelay") {
             // Qpindelay qpindelay;
             // iss >> qpindelay.flipflopname >> qpindelay.value;
             // qpindelays.push_back(qpindelay); // Add to vector
             iss >> flipflopname >> value;
-            if (flipflopname == flipFlops[tnsCount].name){
-                flipFlops[tnsCount].Qpindelay = value;
-                tnsCount++;
-            }
+            // if (flipflopname == flipFlops[tnsCount].name){
+            //     flipFlops[tnsCount].Qpindelay = value;
+            //     tnsCount++;
+            // }
+            FlipFlops[flipflopname].Qpindelay = value;
         }
     }
     // plotData(placementRows);
@@ -302,26 +403,44 @@ int main(int argc, char *argv[]) {
     // ofstream csvFile("testcase1.csv");
     for(const auto& instance : instances){
         // Find the corresponding FlipFlop
-        FlipFlop* correspondingFlipFlop = nullptr;
-        for (auto& flipFlop : flipFlops) {
-            if (flipFlop.name == instance.flipFlopName) {
-                correspondingFlipFlop = &flipFlop;
-                break;
-            }
-        }
+        // FlipFlop* correspondingFlipFlop = nullptr;
+        // for (auto& flipFlop : flipFlops) {
+        //     if (flipFlop.name == instance.flipFlopName) {
+        //         correspondingFlipFlop = &flipFlop;
+        //         break;
+        //     }
+        // }
 
-        if(correspondingFlipFlop){
-            // Bottom-left corner of the cell push into points
-            vector<double> point;
-            point.push_back(instance.x);
-            point.push_back(instance.y);
-            points.push_back(point);
+        // if(correspondingFlipFlop){
+        //     // Bottom-left corner of the cell push into points
+        //     vector<double> point;
+        //     point.push_back(instance.x);
+        //     point.push_back(instance.y);
+        //     points.push_back(point);
 
-            reg_name.push_back(instance.name);
-        }
+        //     reg_name.push_back(instance.name);
+        // }
     }
-    cost = CostCount(flipFlops, weights);
-    cout << "\nCost: "<< binWidth << endl;
+    // cost = CostCount(flipFlops, weights);
+    // cout << "\nCost: "<< binWidth << endl;
+    // printFlipFlops(FlipFlops);
+
+    // map<string, FlipFlop> FinalFlipFlops;
+    
+    cout << "CellInst " << outInstance.size()<< "\n";
+    printOutInstance(outInstance);
+    printNet(nets); 
     return 0;
 
 }
+
+
+
+// Output:
+// 1. A flip-flop placement solution
+// 2. A list of pin mapping between each input flip-flop pins and the output flip-flop pins
+
+// The output must have no cell overlaps and every flip-flop placed on the defined sites of the placement
+// rows while satisfying max placement utilization ratio. The max placement utilization ratio is a cell density
+// constraint implemented by dividing the design into several placement bins, and each bin would have a
+// maximum ratio defining the percentage of area coverage allowed in each bin.

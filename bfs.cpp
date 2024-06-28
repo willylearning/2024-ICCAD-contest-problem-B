@@ -90,6 +90,12 @@ public:
 //     return a;
 //     }
 
+
+// struct record {
+//     vector<string> name;
+// }
+// map<int, record> line;
+
 bool compareByX(Box& a, Box& b) {
     return a.x < b.x;
 }
