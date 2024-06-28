@@ -1,5 +1,5 @@
 # CXX = g++
-# CXXFLAGS = -O3 -g
+# CXXFLAGS = -std=c++14 -O3 -g
 
 # # 定義目標二進制文件
 # TARGETS = input_process_original MeanShift
@@ -24,7 +24,7 @@
 # 	rm -f $(TARGETS) *.o
 
 CXX = g++
-CXXFLAGS = -std=c++11 -O3 -g 
+CXXFLAGS = -std=c++14 -O3 -g 
 
 
 # 定义目标二进制文件
