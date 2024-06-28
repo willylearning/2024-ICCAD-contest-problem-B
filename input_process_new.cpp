@@ -503,10 +503,10 @@ int main(int argc, char *argv[]) {
 
     // map<string, FlipFlop> FinalFlipFlops;
     
-    // cout << "CellInst " << outInstance.size()<< "\n";
-    // printOutInstance(outInstance);
-    // printNet(nets); 
-    // printConnectionLine(connectionline);
+    cout << "CellInst " << outInstance.size()<< "\n";
+    printOutInstance(outInstance);
+    printNet(nets); 
+    printConnectionLine(connectionline);
     return 0;
 
 }
