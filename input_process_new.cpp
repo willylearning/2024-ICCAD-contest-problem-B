@@ -47,7 +47,17 @@ struct FlipFlop {
     double GatePower;
 };
 
-
+// struct Gate {
+//     int bits;
+//     string name;
+//     double width;
+//     double height;
+//     int pinCount; // need to record
+//     vector<Pin> pins;
+//     vector<Pin> shifted_pins;
+//     double Qpindelay;
+//     double GatePower;
+// };
 
 struct Instance {
     string name;
@@ -63,6 +73,19 @@ struct Net {
     int numPins;
     vector<string> pins;
 };
+
+struct NewNetElement {
+    string firstPin;
+    string firstInstance;
+};
+
+struct NewNet {
+    string name;
+    int numPins;
+    NewNetElement firstPin;
+    vector<NewNetElement> pins;
+};
+
 
 struct PlacementRow {
     double startX;
@@ -254,6 +277,23 @@ void printNet(const vector<Net> &nets) {
     }
 }
 
+void printConnectionLine(const map<int, NewNet>& connectionline) {
+    for (const auto& pair : connectionline) {
+        int key = pair.first;
+        const NewNet& net = pair.second;
+
+        cout << "Key: " << key << endl;
+        cout << "Net Name: " << net.name << endl;
+        cout << "Number of Pins: " << net.numPins << endl;
+        cout << "First Pin: " << net.firstPin.firstPin << ", " << net.firstPin.firstInstance << endl;
+        cout << "Pins:" << endl;
+        for (const auto& pin : net.pins) {
+            cout << "  Pin: " << pin.firstPin << ", Instance: " << pin.firstInstance << endl;
+        }
+        cout << endl;
+    }
+}
+
 int main(int argc, char *argv[]) {
     ifstream file(argv[1]);
     string line;
@@ -282,8 +322,9 @@ int main(int argc, char *argv[]) {
     double value;
     double cost = 0;
 
-    map<string, vector<Net>> connectionline;
-    map<int, map<string, vector<Net>>> connectionlineNum;
+    map<int, NewNet> connectionline;
+    map<int, NewNet> bfsconnectionline;
+    map<int, map<string, NewNet>> connectionlineNum;
     map<string, FlipFlop> FlipFlops;
     map<string, Instance> outInstance;
     // map<string,> finalConnectionLine;
@@ -320,46 +361,81 @@ int main(int argc, char *argv[]) {
                 FlipFlops.emplace(ff.name, ff);
             }
             // flipFlops.push_back(flipFlop);
+        } else if (key == "Gate") {
+            FlipFlop ff;
+            iss >> ff.name >> ff.width >> ff.height >> ff.pinCount;
+            for (int i = 0; i < ff.pinCount; ++i) {
+                getline(file, line);
+                istringstream pinIss(line);
+                Pin pin;
+                string type;
+                pinIss >> type >> pin.name >> pin.x >> pin.y;
+                ff.pins.push_back(pin);
+                FlipFlops.emplace(ff.name, ff);
+            }
+            // flipFlops.push_back(flipFlop);
         } else if (key == "Inst") {
             Instance instance;
             iss >> instance.name >> instance.flipFlopName >> instance.x >> instance.y; // read instance
             instances.push_back(instance);
-            outInstance.emplace(instance.flipFlopName, instance);
+            outInstance.emplace(instance.name, instance);
         } else if (key == "NumNets") {
             // cout << key << "\n";
             iss >> value;
             // cout << value << "\n";
             for (int j = 0; j < value; ++j) {
-            getline(file, line);
-            istringstream NetIss(line);
-            // map<string, vector<Net>> connectionline;
-            // map<int, map<string, vector<Net>>> connectionlineNum;
-            NetIss >> name;
-            // cout << name << "\n";
-            if (name == "Net") {
-            Net net;
-            NetIss >> net.name >> net.numPins;
-            // cout << net.name << net.numPins << "\n";
-            for (int i = 0; i < net.numPins; ++i) {
+                NewNet newNet;
                 getline(file, line);
-                istringstream pinIss(line);
-                string pin;
-                string connect;
-                string instName;
-                string libPinName;
-                pinIss >> pin >> connect;
-                // size_t pos = connect.find('/');
-                // cout << "pin " << pin << "connect " << connect << "\n";
-                parsePin(connect, instName, libPinName);
-                // cout << "instName " << instName << " libPinName " << libPinName << " libPinNamelength "<< libPinName.length() <<"\n";
-                lines.emplace(instName, libPinName);
-                opplines.emplace(instName, libPinName);
-                net.pins.push_back(pin);
-                net.pins.push_back(connect);
-            }
-            nets.push_back(net);
-            }
-            // connectionlineNum.emplace(j, connectionline);
+                istringstream NetIss(line);
+                // map<string, Net> connectionline;
+                // map<int, map<string, Net>> connectionlineNum;
+                NetIss >> name;
+                // cout << name << "\n";
+                if (name == "Net") {
+                    Net net;
+                    NetIss >> net.name >> net.numPins;
+                    // cout << net.name << net.numPins << "\n";
+                    string firstpin;
+                    string firstconnect;
+                    string firstinstName;
+                    string firstlibPinName;
+                    newNet.name = net.name;
+                    newNet.numPins = net.numPins;
+                    for (int i = 0; i < net.numPins; ++i) {
+                        getline(file, line);
+                        istringstream pinIss(line);
+                        string pin;
+                        string connect;
+                        string instName;
+                        string libPinName;
+                        NewNetElement newNetElement;
+                        if(i!=0) {
+                            pinIss >> pin >> connect;
+                            // size_t pos = connect.find('/');
+                            // cout << "pin " << pin << "connect " << connect << "\n";
+                            parsePin(connect, instName, libPinName);
+                            // cout << "instName " << instName << " libPinName " << libPinName << " libPinNamelength "<< libPinName.length() <<"\n";
+                            // lines.emplace(instName, libPinName);
+                            // opplines.emplace(instName, libPinName);
+                            net.pins.push_back(pin);
+                            net.pins.push_back(connect);
+                            newNetElement.firstInstance = instName;
+                            newNetElement.firstPin = libPinName;
+                            newNet.pins.push_back(newNetElement);
+                        } else {
+                            pinIss >> firstpin >> firstconnect;
+                            parsePin(firstconnect, firstinstName, firstlibPinName);
+
+                            net.pins.push_back(firstpin);
+                            net.pins.push_back(firstconnect);
+                            newNet.firstPin.firstInstance = firstinstName;
+                            newNet.firstPin.firstPin = firstlibPinName;
+                        }
+                    }
+                    nets.push_back(net);
+                }
+            connectionline.emplace(j, newNet);
+            // bfsconnectionline.emplace(, newNet);
             }
         } else if (key == "BinWidth") {
             iss >> binWidth;
@@ -427,9 +503,10 @@ int main(int argc, char *argv[]) {
 
     // map<string, FlipFlop> FinalFlipFlops;
     
-    cout << "CellInst " << outInstance.size()<< "\n";
-    printOutInstance(outInstance);
-    printNet(nets); 
+    // cout << "CellInst " << outInstance.size()<< "\n";
+    // printOutInstance(outInstance);
+    // printNet(nets); 
+    // printConnectionLine(connectionline);
     return 0;
 
 }
