@@ -106,6 +106,17 @@ struct Pin {
     double y;
 };
 
+struct PinInformation {
+    string instName;
+    string libPinName;
+};
+
+struct Vertex {
+    vector<PinInformation> preprocessors;
+    vector<PinInformation> adjacences;
+    bool color = 0;
+};
+
 struct FlipFlop {
     int bits;
     string name;
@@ -127,6 +138,14 @@ struct Instance {
     double shiftedy;
 };
 
+struct PlacementRow {
+    double startX;
+    double startY;
+    double siteWidth;
+    double siteHeight;
+    int totalNumOfSites;
+};
+
 struct NewNetElement {
     string firstPin;
     string firstInstance;
@@ -139,16 +158,45 @@ struct NewNet {
     vector<NewNetElement> pins;
 };
 
-void bfs_algorithm(const map<int, NewNet>& connectionline,const map<string, FlipFlop>& FlipFlops,const map<string, Instance>& outInstance) {
-    for(const auto& pair : connectionline) {
-        
+struct PlaceDot {
+    double placeX;
+    double placeY;
+    bool placedOrNot = 0;
+};
+
+void place(PinInformation &adjpoint, map<string, FlipFlop>& FlipFlops, map<string, Instance>& outInstance, vector<PlacementRow>& placementRows) {
+    string inst = adjpoint.instName;
+    string lib = adjpoint.libPinName;
+    if() {
+        outInstance[inst]
     }
+
+}
+
+void bfs_algorithm(map<string, FlipFlop>& FlipFlops, map<string, Instance>& outInstance, map<PinInformation, Vertex>& vertex, const PinInformation &pin, vector<PlacementRow>& placementRows) {
+    int connectCount = vertex[pin].adjacences.size();
+    vertex[pin].color = 1;
+    while (connectCount == 0) {
+        // check the color of connection
+        PinInformation adjpoint = vertex[pin].adjacences[connectCount-1];
+        if (vertex[adjpoint].color == 1) {
+            connectCount--;
+            break;
+        } else {
+            vertex[adjpoint].color = 1;
+            place(adjpoint, FlipFlops, outInstance);
+            connectCount--;
+        }
+    }
+    
 }
 
 int main(int argc, char **argv) {
     map<int, NewNet> connectionline;
     map<string, FlipFlop> FlipFlops;
     map<string, Instance> outInstance;
+    map<PinInformation, Vertex> vertex;
+    vector<PlacementRow> placementRows;
 }
 
 
