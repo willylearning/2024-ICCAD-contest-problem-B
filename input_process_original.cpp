@@ -29,6 +29,14 @@ struct FlipFlop {
     vector<Pin> pins;
 };
 
+struct Gate {
+    string name;
+    double width;
+    double height;
+    int pinCount;
+    vector<Pin> pins;
+};
+
 struct Instance {
     string name;
     string flipFlopName;
@@ -85,6 +93,7 @@ int main(int argc, char *argv[]) {
     vector<GatePower> gatePowers;
     diesize size;
     vector<Qpindelay> qpindelays; // Change to vector
+    vector<Gate> gates;
 
     while (getline(file, line)) {
         istringstream iss(line);
@@ -155,6 +164,19 @@ int main(int argc, char *argv[]) {
             Qpindelay qpindelay;
             iss >> qpindelay.flipflopname >> qpindelay.value;
             qpindelays.push_back(qpindelay); // Add to vector
+        } else if (key == "Gate"){
+            Gate gate;
+            iss >> gate.name >> gate.width >> gate.height >> gate.pinCount;
+            for (int i = 0; i < gate.pinCount; ++i) {
+                getline(file, line);
+                istringstream pinIss(line);
+                Pin pin;
+                string type;
+                pinIss >> type >> pin.name >> pin.x >> pin.y;
+                gate.pins.push_back(pin);
+            }
+            gates.push_back(gate);
+
         }
     }
 
@@ -221,6 +243,16 @@ int main(int argc, char *argv[]) {
     cout << "\nBinWidth:"<< binWidth << endl;
     cout << "BinHeight:"<< binHeight << endl;
     cout << "BinMaxUtil:"<< binMaxUtil << endl;
+
+    cout << "\nGate:" << endl;
+
+    for (const auto& gate : gates) {
+        cout <<  ", name: " << gate.name << ", width: " << gate.width << ", height: " << gate.height << endl;
+        cout << "Pins:" << endl;
+        for (const auto& pin : gate.pins) {
+            cout << "Name: " << pin.name << ", X: " << pin.x << ", Y: " << pin.y << endl;
+        }
+    }
 
     ofstream csvFile("testcase1.csv");
     for (const auto& instance : instances) {
