@@ -344,6 +344,7 @@ int main(int argc, char *argv[]) {
     //     cout << endl;
     // }
 
+    int new_idx = reg_name.size() + 1;
     for(int cluster = 0; cluster < clusters.size(); cluster++){
         cout << "Cluster " << cluster << ":\n";
         fout << "Cluster " << cluster << ":\n";
@@ -358,23 +359,30 @@ int main(int argc, char *argv[]) {
             string str = points_namebits_map[make_pair(clusters[cluster].original_points[point][0], clusters[cluster].original_points[point][1])].first;
             int b = points_namebits_map[make_pair(clusters[cluster].original_points[point][0], clusters[cluster].original_points[point][1])].second;
             if(b == max_bit){
-                reg_map[str] = t.first + to_string(reg_name.size() + 1 + cluster);
+                reg_map[str] = t.first + to_string(new_idx);
+                new_idx++;
             }else{
-                if(bitcnt + b == max_bit){
+                if(bitcnt + b == max_bit){ // can bank into the max flipflop
+                    cout << "2" << endl;
                     strvec.push_back(str);
                     for(int i=0; i<strvec.size(); i++){
-                        reg_map[strvec[i]] = t.first + to_string(reg_name.size() + 1 + cluster);
+                        reg_map[strvec[i]] = t.first + to_string(new_idx);
                     }
+                    new_idx++;
                     bitcnt = 0; // reset bitcnt
                     vector <string>().swap(strvec); // clear strvec
                 }else if(bitcnt + b < max_bit && point != clusters[cluster].original_points.size()-1){
+                    cout << "1" << endl;
                     bitcnt += b;
                     strvec.push_back(str);
                 }else if(bitcnt + b < max_bit && point == clusters[cluster].original_points.size()-1){ // last element
+                    cout << "3" << endl;
                     strvec.push_back(str);
                     for(int i=0; i<strvec.size(); i++){
-                        reg_map[strvec[i]] = t.first + to_string(reg_name.size() + 1 + cluster);
+                        reg_map[strvec[i]] = t.first + to_string(new_idx);
                     }
+                    new_idx++;
+                    
                 }
             }
 

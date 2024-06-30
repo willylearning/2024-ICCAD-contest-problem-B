@@ -140,7 +140,6 @@ vector<Cluster> MeanShift::cluster(const std::vector<Point> &points, const std::
     vector<Cluster> clusters;
 
     for (int i = 0; i < shifted_points.size(); i++){
-
         int c = 0;
         for (; c < clusters.size(); c++) {
             if (euclidean_distance(shifted_points[i], clusters[c].mode) <= CLUSTER_EPSILON) {
@@ -170,8 +169,8 @@ vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, d
     vector<Point> a(points.size()); // distances between every point and points[i] 
     vector<double> var_h;
     double hmax = 100000; // need to be tested how big it should be
-    int alpha = 5; // need to be determined
-    int M = 2;
+    int alpha = 19; // need to be determined
+    int M = 1;
 
     // find the M-th nearest neighbor of every point in points
     for(int i=0; i<points.size(); i++){
