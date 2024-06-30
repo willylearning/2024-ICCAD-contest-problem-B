@@ -1,5 +1,5 @@
 # CXX = g++
-# CXXFLAGS = -O3 -g
+# CXXFLAGS = -std=c++14 -O3 -g
 
 # # 定義目標二進制文件
 # TARGETS = input_process_original MeanShift
@@ -24,14 +24,14 @@
 # 	rm -f $(TARGETS) *.o
 
 CXX = g++
-CXXFLAGS = -std=c++11 -O3 -g 
+CXXFLAGS = -std=c++14 -O3 -g 
 
 
 # 定义目标二进制文件
-TARGET = input_process
+TARGET = input_process_original
 
 # 源文件
-SRCS = input_process.cpp MeanShift.cpp
+SRCS = input_process_original.cpp MeanShift.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 # 编译所有目标
