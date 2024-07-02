@@ -117,6 +117,8 @@ struct Vertex {
     bool color = 0;
 };
 
+// map<string, Vertex>
+
 struct FlipFlop {
     int bits;
     string name;
@@ -167,9 +169,9 @@ struct PlaceDot {
 void place(PinInformation &adjpoint, map<string, FlipFlop>& FlipFlops, map<string, Instance>& outInstance, vector<PlacementRow>& placementRows) {
     string inst = adjpoint.instName;
     string lib = adjpoint.libPinName;
-    if() {
-        outInstance[inst]
-    }
+    // if() {
+    //     outInstance[inst]
+    // }
 
 }
 
@@ -197,6 +199,7 @@ int main(int argc, char **argv) {
     map<string, Instance> outInstance;
     map<PinInformation, Vertex> vertex;
     vector<PlacementRow> placementRows;
+    
 }
 
 

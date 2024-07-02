@@ -42,7 +42,7 @@ struct FlipFlop {
     double height;
     int pinCount; // need to record
     vector<Pin> pins;
-    vector<Pin> shifted_pins;
+    // vector<Pin> shifted_pins;
     double Qpindelay;
     double GatePower;
 };
