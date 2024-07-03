@@ -4,8 +4,19 @@
 #include <algorithm>
 #include <float.h>
 #include "MeanShift.h"
+#include <boost/geometry.hpp>
+#include <boost/geometry/index/rtree.hpp>
+#include <boost/geometry/geometries/point.hpp>
+#include <fstream>
+#include <sstream>
+#include <vector>
+#include <string>
 
 using namespace std;
+namespace bg = boost::geometry;
+namespace bgi = boost::geometry::index;
+
+
 
 #define CLUSTER_EPSILON 0.5
 
@@ -43,6 +54,34 @@ bool cmp(pair<double, int> a, pair<double, int> b){
     return a.first < b.first;
 }
 
+std::vector<int> read_csv_to_int_vector(const std::string& file_path) {
+    std::vector<int> int_vector;
+    std::ifstream file(file_path);
+    std::string line;
+
+    if (!file.is_open()) {
+        std::cerr << "Failed to open the file: " << file_path << std::endl;
+        return int_vector;
+    }
+
+    while (std::getline(file, line)) {
+        std::stringstream line_stream(line);
+        std::string cell;
+        while (std::getline(line_stream, cell, ',')) {
+            try {
+                int number = std::stoi(cell);
+                int_vector.push_back(number);
+            } catch (const std::invalid_argument& e) {
+                // 忽略無效的數字
+            }
+        }
+    }
+
+    file.close();
+    return int_vector;
+}
+
+
 void MeanShift::shift_point(const Point &point, const std::vector<Point> &points, double kernel_bandwidth, Point &shifted_point) {
     // point : current center point, points : all data points
     double hmax = 100000; // need to be tested how big it should be
@@ -54,18 +93,22 @@ void MeanShift::shift_point(const Point &point, const std::vector<Point> &points
     }
     double total_weight = 0;
 
-    // Identifying Effective Neighbors by KNN
-    vector<pair<double, int>> dist_from_point;
-    for(int i = 0; i < points.size(); ++i){
-        if(points[i] != point){
-            double distance = euclidean_distance(points[i], point);
-            dist_from_point.push_back(make_pair(distance, i));
-            // cout << points[i][0] << endl;
-        }  
-    }
+    string file_path = "knn_results.csv"; // 將此處替換為您的CSV檔案路徑
+    vector<int> knn_result_vector = read_csv_to_int_vector(file_path);
 
-    sort(dist_from_point.begin(), dist_from_point.end(), cmp); // sort dist_from_point by distance
-    // cout << points[0][0] << endl;
+
+    // Identifying Effective Neighbors by KNN
+    // vector<pair<double, int>> dist_from_point;
+    // for(int i = 0; i < points.size(); ++i){
+    //     if(points[i] != point){
+    //         double distance = euclidean_distance(points[i], point);
+    //         dist_from_point.push_back(make_pair(distance, i));
+    //         // cout << points[i][0] << endl;
+    //     }  
+    // }
+
+    // sort(dist_from_point.begin(), dist_from_point.end(), cmp); // sort dist_from_point by distance
+    // // cout << points[0][0] << endl;
 
     vector<double> effective_var_h;
     vector<Point> effective_neighbors;
