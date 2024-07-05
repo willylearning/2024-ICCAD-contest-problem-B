@@ -54,8 +54,8 @@ bool cmp(pair<double, int> a, pair<double, int> b){
     return a.first < b.first;
 }
 
-std::vector<int> read_csv_to_int_vector(const std::string& file_path) {
-    std::vector<int> int_vector;
+std::vector<int> read_csv_to_double_vector(const std::string& file_path) {
+    std::vector<double> double_vector;
     std::ifstream file(file_path);
     std::string line;
 
@@ -70,7 +70,7 @@ std::vector<int> read_csv_to_int_vector(const std::string& file_path) {
         while (std::getline(line_stream, cell, ',')) {
             try {
                 int number = std::stoi(cell);
-                int_vector.push_back(number);
+                double_vector.push_back(number);
             } catch (const std::invalid_argument& e) {
                 // 忽略無效的數字
             }
@@ -78,7 +78,7 @@ std::vector<int> read_csv_to_int_vector(const std::string& file_path) {
     }
 
     file.close();
-    return int_vector;
+    return double_vector;
 }
 
 
@@ -94,7 +94,7 @@ void MeanShift::shift_point(const Point &point, const std::vector<Point> &points
     double total_weight = 0;
 
     string file_path = "knn_results.csv"; // 將此處替換為您的CSV檔案路徑
-    vector<int> knn_result_vector = read_csv_to_int_vector(file_path);
+    vector<double> knn_result_vector = read_csv_to_double_vector(file_path);
 
 
     // Identifying Effective Neighbors by KNN
