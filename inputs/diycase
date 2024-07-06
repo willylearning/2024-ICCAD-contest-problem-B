@@ -1,0 +1,78 @@
+Alpha 10
+Beta 10
+Gamma 0.0000002
+Lambda 10
+DieSize 0 0 23475 23280
+NumInput 2
+Input in 8344 22840
+Input clk 0 1970
+NumOutput 1
+Output out 23075 11410
+FlipFlop 1 FF1 5610 4200 3
+Pin Q 1110 3640
+Pin D 1345 400
+Pin CLK 1875 980
+FlipFlop 2 FF32 5610 8400 5
+Pin Q0 90 3080
+Pin Q1 90 7280
+Pin D0 90 980
+Pin D1 90 5180
+Pin CLK 3045 200
+FlipFlop 4 FF38 5610 16800 9
+Pin Q0 90 3080
+Pin Q1 90 7280
+Pin Q2 90 11480
+Pin Q3 90 15680
+Pin D0 1005 200
+Pin D1 90 5180
+Pin D2 1005 8600
+Pin D3 90 13580
+Pin CLK 2365 480
+NumInstances 11
+Inst C1 FF1 5952 3600 
+Inst C2 FF1 5953 3600 
+Inst C3 FF1 5954 3600 
+Inst C4 FF1 5955 3600 
+Inst C5 FF1 5956 3600 
+Inst C6 FF32 5957 3600 
+Inst C7 FF32 5958 3600 
+Inst C8 FF32 5959 3600 
+Inst C9 FF32 5960 3600 
+Inst C10 FF38 5961 3600 
+Inst C11 FF38 5962 3600 
+NumNets 6
+Net p0 2
+Pin reg1/Q
+Pin reg2/D
+Net p1 2
+Pin reg2/Q
+Pin reg3/D
+Net p2 2
+Pin reg3/Q
+Pin reg4/D
+Net out 2
+Pin reg4/Q
+Pin out
+Net in 2
+Pin in
+Pin reg1/D
+Net clk 5
+Pin CLK
+Pin reg4/CLK
+Pin reg3/CLK
+Pin reg2/CLK
+Pin reg1/CLK
+BinWidth 1200
+BinHeight 1200
+BinMaxUtil 25
+PlacementRows 480 3600 57 240 395
+PlacementRows 480 6000 57 240 395
+DisplacementDelay 0.01
+QpinDelay SVT_FF_1 0.02
+QpinDelay SVT_FF_2 0.06
+TimingSlack reg1 D -0.183134
+TimingSlack reg2 D 0.149378
+TimingSlack reg3 D -0.152106
+TimingSlack reg4 D 0.150923
+GatePower SVT_FF_1 1.4781e+01
+GatePower SVT_FF_2 5.2515e+01

@@ -4,12 +4,23 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 #include <algorithm>
+#include <numeric>
 #include <stdio.h>
 #include <stdlib.h>
 #include "MeanShift.h"
 
 using namespace std;
+/* maps in the code
+    map<string, int> ffname_bits_map, ex: ffname_bits_map['FF1'] = 1 
+    map<pair<double, double>, pair<string, string>> points_namebits_map, ex: points_namebits_map[(x, y)] = ('reg1', 'FF1')
+    map<string, string> name_type_map, ex: name_type_map['reg1'] = 'FF1'
+    map<string, string> reg_map, ex: reg_map['reg1'] = 'reg5'
+*/
+
+map<string, int> ffname_bits_map;
+map<string, string> name_type_map;
 
 struct diesize {
     double x_left;
@@ -89,9 +100,11 @@ pair<string, int> splitString(const string& str) {
     return {nonNumericPart, numericPart};
 }
 
-bool CompareByBits(vector<double>& a, vector<double>& b, map<pair<double, double>, pair<string, int>> points_namebits_map) {
-    return points_namebits_map[make_pair(a[0], a[1])].second > points_namebits_map[make_pair(b[0], b[1])].second; // sort points by ff's bits in decreasing order
+bool CompareByBits(vector<double>& a, vector<double>& b, map<pair<double, double>, pair<string, string>> points_namebits_map) {
+    return ffname_bits_map[points_namebits_map[make_pair(a[0], a[1])].second] > ffname_bits_map[points_namebits_map[make_pair(b[0], b[1])].second]; // sort points by ff's bits in decreasing order
 }
+
+
 
 int main(int argc, char *argv[]) {
     ifstream file(argv[1]);
@@ -115,9 +128,10 @@ int main(int argc, char *argv[]) {
     vector<Qpindelay> qpindelays; // Change to vector
 
     // map< pair<double, double>, pair<string, string> > inst_map;
-    map<string, int> ffname_bits_map;
+    
     pair<string, int> t;
     int max_bit = 0;
+    set<int> possible_bits;
 
     while (getline(file, line)) {
         istringstream iss(line);
@@ -132,22 +146,21 @@ int main(int argc, char *argv[]) {
             weights[key] = value;
         } else if (key == "Input") {
             Pin pin;
-            iss >> pin.name >> pin.x >> pin.y;
+            iss >> pin.name >> pin.x >> pin.y; // ex: INPUT1 1253995 0
             inputPins.push_back(pin);
-        } else if (key == "Output") {
+        } else if (key == "Output") { 
             Pin pin;
-            iss >> pin.name >> pin.x >> pin.y;
+            iss >> pin.name >> pin.x >> pin.y; // ex: OUTPUT1 1296040 41105
             outputPins.push_back(pin);
         } else if (key == "FlipFlop") {
             FlipFlop flipFlop;
             iss >> flipFlop.bits >> flipFlop.name >> flipFlop.width >> flipFlop.height >> flipFlop.pinCount;
-            if(flipFlop.bits > max_bit){
-                max_bit = flipFlop.bits;
-            }
-            // fill in ffname_bits_map
+            // fill flipFlop.bits in the set "possible_bits" in increasing order
+            possible_bits.insert(flipFlop.bits);
+            // fill flipFlop.bits in ffname_bits_map, ex: ffname_bits_map['FF1'] = 1 
             ffname_bits_map[flipFlop.name] = flipFlop.bits;
             // deal with each pin
-            for (int i = 0; i < flipFlop.pinCount; ++i) {
+            for(int i = 0; i < flipFlop.pinCount; ++i){
                 getline(file, line);
                 istringstream pinIss(line);
                 Pin pin;
@@ -170,14 +183,15 @@ int main(int argc, char *argv[]) {
             gates.push_back(gate);
         } else if (key == "Inst") {
             Instance instance;
-            iss >> instance.inst_name >> instance.type_name >> instance.x >> instance.y; // read instance
+            iss >> instance.inst_name >> instance.type_name >> instance.x >> instance.y; // ex: Inst C1 G322 304470 661500
             t = splitString(instance.inst_name); // t.first is string, t.second is int
-            cout << t.first << endl;
+            // cout << t.first << endl;
+            name_type_map[instance.inst_name] = instance.type_name;
 
             instances.push_back(instance);
         } else if (key == "Net") {
             Net net;
-            iss >> net.name >> net.numPins;
+            iss >> net.name >> net.numPins; // ex: Net net36760 5
             for (int i = 0; i < net.numPins; ++i) {
                 getline(file, line);
                 istringstream pinIss(line);
@@ -211,6 +225,14 @@ int main(int argc, char *argv[]) {
             qpindelays.push_back(qpindelay); // Add to vector
         }
     }
+
+    vector<int> possible_bits_vec(possible_bits.begin(), possible_bits.end());
+    reverse(possible_bits_vec.begin(), possible_bits_vec.end());
+    max_bit = possible_bits_vec[0];
+
+    // for (int num : possible_bits_vec) {
+    //     cout << "possible_bits " << num << " ";
+    // }
 
     // Output parsed data
     cout << "Weights:" << endl;
@@ -286,8 +308,7 @@ int main(int argc, char *argv[]) {
     cout << "BinMaxUtil:"<< binMaxUtil << endl;
 
     vector<vector<double>> points;
-    vector<string> reg_name;
-    map<pair<double, double>, pair<string, int>> points_namebits_map;
+    map<pair<double, double>, pair<string, string>> points_namebits_map;
 
     // ofstream csvFile("testcase1.csv");
     int n;
@@ -300,10 +321,9 @@ int main(int argc, char *argv[]) {
                 point.push_back(instance.x);
                 point.push_back(instance.y);
                 points.push_back(point);
-                reg_name.push_back(instance.inst_name);
 
                 n = ffname_bits_map[instance.type_name];
-                points_namebits_map[make_pair(instance.x, instance.y)] = make_pair(instance.inst_name, n);
+                points_namebits_map[make_pair(instance.x, instance.y)] = make_pair(instance.inst_name, instance.type_name);
             }
         }
     }
@@ -324,9 +344,7 @@ int main(int argc, char *argv[]) {
     cout << "Found " << clusters.size() <<" clusters\n";
     cout << "====================\n\n";
 
-    int reg_cnt = 0;
-    int reg_tmp = 0;
-    cout << "reg_name size : " << reg_name.size() << "\n";
+    cout << "flipflops' size : " << instances.size() << "\n";
 
     map<string, string> reg_map;
 
@@ -344,7 +362,8 @@ int main(int argc, char *argv[]) {
     //     cout << endl;
     // }
 
-    int new_idx = reg_name.size() + 1;
+    int new_idx = instances.size() + 1;
+
     for(int cluster = 0; cluster < clusters.size(); cluster++){
         cout << "Cluster " << cluster << ":\n";
         fout << "Cluster " << cluster << ":\n";
@@ -353,35 +372,121 @@ int main(int argc, char *argv[]) {
         // construct a map between original_points[point] and its reg_type
         int bitcnt = 0;
         vector<string> strvec;
+        vector<Instance> new_instances;
         
         for(int point = 0; point < clusters[cluster].original_points.size(); point++){
             // check which inst_name the point corresponds to in instances 
             string str = points_namebits_map[make_pair(clusters[cluster].original_points[point][0], clusters[cluster].original_points[point][1])].first;
-            int b = points_namebits_map[make_pair(clusters[cluster].original_points[point][0], clusters[cluster].original_points[point][1])].second;
-            if(b == max_bit){
+            int b = ffname_bits_map[points_namebits_map[make_pair(clusters[cluster].original_points[point][0], clusters[cluster].original_points[point][1])].second];
+            vector<double> x_vec;
+            vector<double> y_vec;
+            
+            if(b == max_bit){ // it's already a max-bit flipflop
                 reg_map[str] = t.first + to_string(new_idx);
                 new_idx++;
+                // Banking : use the max-bit flipflop with the minimum area
+                // Still need to find a better way
+                Instance new_instance;
+                new_instance.inst_name = reg_map[str];
+                for(auto& flipFlop : flipFlops){
+                    if(flipFlop.bits == max_bit){
+                        new_instance.type_name = flipFlop.name;
+                    }
+                }
+                new_instance.x = clusters[cluster].original_points[point][0];
+                new_instance.y = clusters[cluster].original_points[point][1];
+                // push new_instance into the vector new_instances
+                new_instances.push_back(new_instance);
             }else{
-                if(bitcnt + b == max_bit){ // can bank into the max flipflop
-                    cout << "2" << endl;
+                if(bitcnt + b == max_bit){ // can bank into a max-bit flipflop
+                    // cout << "2" << endl;
                     strvec.push_back(str);
                     for(int i=0; i<strvec.size(); i++){
                         reg_map[strvec[i]] = t.first + to_string(new_idx);
                     }
                     new_idx++;
+
+                    // deal with the new flipflop's coordinate
+                    x_vec.push_back(clusters[cluster].original_points[point][0]);
+                    y_vec.push_back(clusters[cluster].original_points[point][1]);
+                    double x_avg = std::accumulate(x_vec.begin(), x_vec.end(), 0.0) / x_vec.size();
+                    double y_avg = std::accumulate(y_vec.begin(), y_vec.end(), 0.0) / y_vec.size();
+                    
+                    // Banking : use the max-bit flipflop with the minimum area
+                    Instance new_instance;
+                    new_instance.inst_name = reg_map[str];
+                    for(auto& flipFlop : flipFlops){
+                        if(flipFlop.bits == max_bit){
+                            new_instance.type_name = flipFlop.name;
+                        }
+                    }
+                    new_instance.x = x_avg;
+                    new_instance.y = y_avg;
+                    // push new_instance into the vector new_instances
+                    new_instances.push_back(new_instance);
+
                     bitcnt = 0; // reset bitcnt
                     vector <string>().swap(strvec); // clear strvec
+                    vector <double>().swap(x_vec); // clear x_vec
+                    vector <double>().swap(y_vec); // clear y_vec
+
                 }else if(bitcnt + b < max_bit && point != clusters[cluster].original_points.size()-1){
-                    cout << "1" << endl;
+                    // cout << "1" << endl;
                     bitcnt += b;
                     strvec.push_back(str);
-                }else if(bitcnt + b < max_bit && point == clusters[cluster].original_points.size()-1){ // last element
-                    cout << "3" << endl;
+                    x_vec.push_back(clusters[cluster].original_points[point][0]);
+                    y_vec.push_back(clusters[cluster].original_points[point][1]);
+
+                }else if(bitcnt + b < max_bit && point == clusters[cluster].original_points.size()-1){ // remain elements
+                    // cout << "3" << endl;
+                    bitcnt += b; // ex: 7 = 2+2+1+1+1, max_bit = 8
                     strvec.push_back(str);
+                    x_vec.push_back(clusters[cluster].original_points[point][0]);
+                    y_vec.push_back(clusters[cluster].original_points[point][1]);
+
+                    int tmpcnt = 0;
                     for(int i=0; i<strvec.size(); i++){
-                        reg_map[strvec[i]] = t.first + to_string(new_idx);
+                        for(int pb : possible_bits_vec){
+                            if(bitcnt >= pb){
+                                tmpcnt += ffname_bits_map[name_type_map[strvec[i]]];
+                                if(tmpcnt < pb){
+                                    reg_map[strvec[i]] = t.first + to_string(new_idx);
+                                    break;
+                                }else if(tmpcnt == pb){
+                                    reg_map[strvec[i]] = t.first + to_string(new_idx);
+                                    // new_instance forms
+                                    Instance new_instance;
+                                    new_instance.inst_name = reg_map[strvec[i]];
+                                    for(auto& flipFlop : flipFlops){
+                                        if(flipFlop.bits == max_bit){
+                                            new_instance.type_name = flipFlop.name;
+                                        }
+                                    }
+                                    new_instances.push_back(new_instance);
+                                    // update new_idx, bitcnt, tmpcnt
+                                    new_idx++;
+                                    bitcnt -= pb;
+                                    tmpcnt = 0;
+                                    break;
+                                }
+                            }
+                        }
                     }
-                    new_idx++;
+                    // don't do banking
+                    // strvec.push_back(str);
+                    // for(int i=0; i<strvec.size(); i++){
+                    //     reg_map[strvec[i]] = t.first + to_string(new_idx);
+                    //     new_idx++;
+                    //      // rename the flipflops that do not bank
+                    //     Instance new_instance;
+                    //     new_instance.inst_name = reg_map[strvec[i]];
+                    //     for(auto& flipFlop : flipFlops){
+                    //         if(flipFlop.bits == max_bit){
+                    //             new_instance.type_name = flipFlop.name;
+                    //         }
+                    //     }
+                    //     new_instances.push_back(new_instance);
+                    // }
                     
                 }
             }
@@ -412,7 +517,7 @@ int main(int argc, char *argv[]) {
     }
 
     // cout << "max bit is " << max_bit << endl;
-
+   
     fout.close();
 
     return 0;
