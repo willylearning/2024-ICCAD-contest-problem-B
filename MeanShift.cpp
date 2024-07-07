@@ -46,7 +46,7 @@ bool cmp(pair<double, int> a, pair<double, int> b){
 void MeanShift::shift_point(const Point &point, const std::vector<Point> &points, double kernel_bandwidth, Point &shifted_point) {
     // point : current center point, points : all data points
     double hmax = 100000; // need to be tested how big it should be
-    int K = 2; // need to be tested how big it should be
+    int K = 5; // need to be tested how big it should be
     vector<double> var_h = variable_bandwidth(points, kernel_bandwidth);
     shifted_point.resize(point.size());
     for(int dim = 0; dim<shifted_point.size(); dim++){
@@ -169,8 +169,8 @@ vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, d
     vector<Point> a(points.size()); // distances between every point and points[i] 
     vector<double> var_h;
     double hmax = 100000; // need to be tested how big it should be
-    int alpha = 19; // need to be determined
-    int M = 1;
+    int alpha = 100000000; // need to be determined
+    int M = 5;
 
     // find the M-th nearest neighbor of every point in points
     for(int i=0; i<points.size(); i++){
