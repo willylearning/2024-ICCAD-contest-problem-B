@@ -443,6 +443,8 @@ int main(int argc, char *argv[]) {
                     strvec.push_back(str);
                     x_vec.push_back(clusters[cluster].original_points[point][0]);
                     y_vec.push_back(clusters[cluster].original_points[point][1]);
+                    vector<double> x_vec_last;
+                    vector<double> y_vec_last;
 
                     int tmpcnt = 0;
                     for(int i=0; i<strvec.size(); i++){
@@ -451,9 +453,15 @@ int main(int argc, char *argv[]) {
                                 tmpcnt += ffname_bits_map[name_type_map[strvec[i]]];
                                 if(tmpcnt < pb){
                                     reg_map[strvec[i]] = t.first + to_string(new_idx);
+                                    x_vec_last.push_back(x_vec[i]);
+                                    y_vec_last.push_back(y_vec[i]);
                                     break;
                                 }else if(tmpcnt == pb){
                                     reg_map[strvec[i]] = t.first + to_string(new_idx);
+                                    x_vec_last.push_back(x_vec[i]);
+                                    y_vec_last.push_back(y_vec[i]);
+                                    double x_avg = std::accumulate(x_vec_last.begin(), x_vec_last.end(), 0.0) / x_vec_last.size();
+                                    double y_avg = std::accumulate(y_vec_last.begin(), y_vec_last.end(), 0.0) / y_vec_last.size();
                                     // new_instance forms
                                     Instance new_instance;
                                     new_instance.inst_name = reg_map[strvec[i]];
@@ -462,6 +470,9 @@ int main(int argc, char *argv[]) {
                                             new_instance.type_name = flipFlop.name;
                                         }
                                     }
+                                    new_instance.x = x_avg;
+                                    new_instance.y = y_avg;
+                                    // push new_instance into the vector new_instances
                                     new_instances.push_back(new_instance);
                                     // update new_idx, bitcnt, tmpcnt
                                     new_idx++;
