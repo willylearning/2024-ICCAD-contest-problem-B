@@ -54,35 +54,44 @@ bool cmp(pair<double, int> a, pair<double, int> b){
     return a.first < b.first;
 }
 
-std::vector<int> read_csv_to_double_vector(const std::string& file_path) {
-    std::vector<double> double_vector;
-    std::ifstream file(file_path);
-    std::string line;
+
+vector<vector<pair<double, int> > > parseCSV(const string& filename) {
+    vector<vector<pair<double, int> > > data;
+    ifstream file(filename);
 
     if (!file.is_open()) {
-        std::cerr << "Failed to open the file: " << file_path << std::endl;
-        return int_vector;
+        cerr << "Could not open the file!" << endl;
+        return data;
     }
 
-    while (std::getline(file, line)) {
-        std::stringstream line_stream(line);
-        std::string cell;
-        while (std::getline(line_stream, cell, ',')) {
-            try {
-                int number = std::stoi(cell);
-                double_vector.push_back(number);
-            } catch (const std::invalid_argument& e) {
-                // 忽略無效的數字
+    string line;
+    while (getline(file, line)) {
+        vector<pair<double, int> > row;
+        stringstream ss(line);
+        string value;
+        bool isDouble = true;
+        double doubleVal;
+        int intVal;
+
+        while (getline(ss, value, ',')) {
+            if (isDouble) {
+                doubleVal = stod(value);
+            } else {
+                intVal = stoi(value);
+                row.push_back(make_pair(doubleVal, intVal));
             }
+            isDouble = !isDouble;
         }
+
+        data.push_back(row);
     }
 
     file.close();
-    return double_vector;
+    return data;
 }
 
 
-void MeanShift::shift_point(const Point &point, const std::vector<Point> &points, double kernel_bandwidth, Point &shifted_point) {
+void MeanShift::shift_point(const Point &point, const std::vector<Point> &points, double kernel_bandwidth, Point &shifted_point, int index) {
     // point : current center point, points : all data points
     double hmax = 100000; // need to be tested how big it should be
     int K = 5; // need to be tested how big it should be
@@ -93,8 +102,9 @@ void MeanShift::shift_point(const Point &point, const std::vector<Point> &points
     }
     double total_weight = 0;
 
-    string file_path = "knn_results.csv"; // 將此處替換為您的CSV檔案路徑
-    vector<double> knn_result_vector = read_csv_to_double_vector(file_path);
+    string file_path = "knn_results.csv";
+    vector<vector<pair<double, int> > > info;
+    info = vector<vector<pair<double, int> > > parseCSV(const string& file_path);
 
 
     // Identifying Effective Neighbors by KNN
@@ -120,6 +130,16 @@ void MeanShift::shift_point(const Point &point, const std::vector<Point> &points
             // cout << "t2 " << effective_neighbors[i][0] << endl;
         }
     }
+
+    for(int i=0; i<info[index].size(); i++){ 
+        // cout << "t1 " << dist_from_point[i].first << ", " << hmax << endl;
+        if(info[index][i].second <= hmax){ // if the neighbor's distance > hmax => excluded neighbor
+            effective_neighbors.push_back(points[info[index][i].first]);
+            effective_var_h.push_back(var_h[info[index][i].first]);
+            // cout << "t2 " << effective_neighbors[i][0] << endl;
+        }
+    }
+
 
     for(int i=0; i<effective_neighbors.size(); i++){
         const Point& temp_point = effective_neighbors[i];
