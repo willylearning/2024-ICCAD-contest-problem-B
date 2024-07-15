@@ -5,6 +5,7 @@ make
 
 how to run :
 ./input_process inputs/sampleCase
+./input_process inputs/diycase
 ./input_process inputs/testcase1_0614.txt
 
 

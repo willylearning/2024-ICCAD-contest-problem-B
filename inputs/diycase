@@ -29,10 +29,10 @@ Pin D2 1005 8600
 Pin D3 90 13580
 Pin CLK 2365 480
 NumInstances 11
-Inst C1 FF38 5952 3600 
-Inst C2 FF32 5953 3600 
-Inst C3 FF1 5954 3600 
-Inst C4 FF1 5955 3600 
+Inst C1 FF32 5952 3600 
+Inst C2 FF1 5953 3600 
+Inst C3 FF32 5954 3600 
+Inst C4 FF32 5955 3600 
 Inst C5 FF1 5956 3600 
 Inst C6 FF32 5957 3600 
 Inst C7 FF32 5958 3600 
@@ -53,15 +53,16 @@ Pin reg4/D
 Net out 2
 Pin reg4/Q
 Pin out
-Net in 2
+Net in 6
 Pin in
-Pin reg1/D
-Net clk 5
+Pin C1/D
+Pin C2/CLK
+Pin C1/CLK
+Pin C3/CLK
+Pin C4/CLK
+Net clk0 2
 Pin CLK
-Pin reg4/CLK
-Pin reg3/CLK
-Pin reg2/CLK
-Pin reg1/CLK
+Pin C5/CLK
 BinWidth 1200
 BinHeight 1200
 BinMaxUtil 25
