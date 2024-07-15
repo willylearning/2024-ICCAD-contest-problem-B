@@ -10,7 +10,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "MeanShift.h"
+
+// add 
 #include <unordered_map>
+#include <cmath>
+#include <stdexcept>
 
 using namespace std;
 
@@ -97,6 +101,7 @@ bool compareInstancesByFlipFlopBits(const Instance &a, const Instance &b, const 
     return flipFlopBitsMap.at(a.type_name) > flipFlopBitsMap.at(b.type_name);
 }
 
+// sort instances by the bits of ff
 void sortInstance(vector<Instance>  &instances, vector<FlipFlop> &flipFlops) {
     sort(flipFlops.begin(), flipFlops.end(), compareByBitsDescending);
     unordered_map<std::string, int> flipFlopBitsMap;
@@ -109,7 +114,7 @@ void sortInstance(vector<Instance>  &instances, vector<FlipFlop> &flipFlops) {
         });
 }
 
-// 2.
+// 2. data structure of placement
 struct Place {
     bool isPlace = 0;
     float placeLengthX;
@@ -117,8 +122,16 @@ struct Place {
     float bottomX;
     float bottomY;
 };
-vector<Place> place;
-void createPlace(diesize &size, double &binWidth, double &binHeight, double &binMaxUtil, vector<Place> &place) {
+
+struct PlacesSite {
+    vector<Place> place;
+    PlacementRow placeInformation;
+    int rowCount;
+};
+
+// 3. placement algorithm
+vector<Place> Dieplace;
+void createDiesize(diesize &size, double &binWidth, double &binHeight, double &binMaxUtil, vector<Place> &Dieplace) {
     int columnCount = size.x_right/binWidth;
     int rowCount = size.y_up/binHeight;
     int placeNum = rowCount*columnCount;
@@ -127,14 +140,93 @@ void createPlace(diesize &size, double &binWidth, double &binHeight, double &bin
             Place p;
             p.bottomX = size.x_left + binWidth*j;
             p.bottomY = size.y_bottom + binHeight*i;
-            place.push_back(p);
+            Dieplace.push_back(p);
         }
     }
 }
 
-void placementAlg(map<string, string> &name_type_map, map<string, string> &reg_map, vector<PlacementRow> &placementRows, vector<Instance>  &instances) {
-    
+float findClosestKey(const map<float, PlacesSite>& m, float target) {
+    PlacesSite k;
+    if (m.empty()) {
+        throw runtime_error("Map is empty");
+    }
+
+    auto lower = m.lower_bound(target);
+    if (lower == m.end()) {
+        return prev(lower)->first;
+    }
+    if (lower == m.begin()) {
+        return lower->first;
+    }
+
+    auto prevLower = prev(lower);
+    if ((target - prevLower->first) <= (lower->first - target)) {
+        return prevLower->first;
+    } else {
+        return lower->first;
+    }
 }
+
+vector<PlacesSite> place;
+map<float, PlacesSite> place_row_map;
+
+void createPlace(vector<PlacementRow> &placementRows, vector<PlacesSite> &place, map<float, PlacesSite> &place_row_map) {
+    int c = 0;
+    for (const auto &placementRow : placementRows) {
+        PlacesSite p1;
+        float rowInormation = placementRow.startY;
+        p1.placeInformation = placementRow;
+        for(int i = 0; i < placementRow.totalNumOfSites; ++i) {
+            Place p2;
+            p2.bottomY = p1.placeInformation.startY;
+            p2.bottomX = p1.placeInformation.startX + i*p1.placeInformation.siteWidth;
+            p1.place.push_back(p2);
+        }
+        p1.rowCount = c;
+        place.push_back(p1);
+        place_row_map[p1.placeInformation.startY] = p1;
+        c++;
+    }
+}
+
+void placementAlg(map<string, string> &name_type_map, map<string, string> &reg_map, vector<PlacementRow> &placementRows, vector<Instance>  &instances, vector<PlacesSite> &place, map<float, PlacesSite> &place_row_map) {
+    for (const auto &instance : instances) {
+        // instance informations
+        //------------------------------
+        // float instanceWidth = instance.type_name;
+        // float instanceHieght = ;
+        //------------------------------
+        // placemnent informations
+        float closeRow = findClosestKey(place_row_map, instance.y);
+        float width = place_row_map[closeRow].placeInformation.siteWidth;
+        float hieght = place_row_map[closeRow].placeInformation.siteHeight;
+        float temp = (instance.x - place_row_map[closeRow].placeInformation.startX)/place_row_map[closeRow].placeInformation.siteWidth;
+
+        int temp2;
+        int rowCount = place_row_map[closeRow].rowCount;
+        if(temp-(int)temp>0.5) {
+            temp2 = (int)temp + 1;
+        } else {
+            temp2 = (int)temp;
+        }
+        if(place[rowCount].place[temp2].isPlace == false){
+            place[rowCount].place[temp2].isPlace = true;
+        }
+        // determine the column
+
+        if (temp2 > 1) {
+            for(int i = 1; i < temp2; ++i) {
+                
+            }
+        }
+        // determine the row 
+    }
+}
+
+//------------------------------
+// Placement Function Declaration END
+//------------------------------
+
 
 //------------------------------
 // Global Variable Declaration
