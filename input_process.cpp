@@ -9,6 +9,8 @@
 #include <numeric>
 #include <stdio.h>
 #include <stdlib.h>
+#include <cassert>
+#include <cmath>
 #include "MeanShift.h"
 
 using namespace std;
@@ -51,6 +53,8 @@ struct Instance {
     string type_name;
     double x;
     double y;
+    // clk belongs to which net
+    // when reading net, if reading ffname/clk, then clk_map[ffname] = netname ( or a int )
 };
 
 struct Net {
@@ -89,12 +93,14 @@ struct GatePower {
 //------------------------------
 /* maps in the code
     map<string, int> type_bits_map, ex: type_bits_map['FF1'] = 1
-    map<pair<double, double>, pair<string, string>> points_namebits_map, ex: points_namebits_map[(x, y)] = ('reg1', 'FF1')
-    map<string, string> name_type_map, ex: name_type_map['reg1'] = 'FF1'
-    map<string, string> reg_map, ex: reg_map['reg1'] = 'reg5'
+    map<pair<double, double>, pair<string, string>> points_namebits_map, ex: points_namebits_map[(x, y)] = ('C1', 'FF1')
+    map<string, string> name_type_map, ex: name_type_map['C1'] = 'FF1'
+    map<string, string> reg_map, ex: reg_map['C1'] = 'C5'
+    map<string, int> clk_net_map, ex: clk_net_map['C1'] = 5 (which means that clk of C1 is in 5th net)
 */
 map<string, int>    type_bits_map;
 map<string, string> name_type_map;
+map<string, int> clk_net_map;
 
 // Data structures to store parsed information
 map<string, double> weights;
@@ -120,6 +126,10 @@ pair<string, int>   t;
 set<int>            possible_bits;
 int max_bit =       0;    // FlipFlops' max bit count
 
+int cost_area = 0;
+double cost_power = 0;
+double cost_tns = 0;
+
 //------------------------------
 // Functions
 //------------------------------
@@ -135,6 +145,9 @@ pair<string, int> splitString(const string& str) {
 }
 
 bool CompareByBits(vector<double>& a, vector<double>& b, map<pair<double, double>, pair<string, string>> points_namebits_map) {
+    if(clk_net_map[points_namebits_map[make_pair(a[0], a[1])].first] != clk_net_map[points_namebits_map[make_pair(b[0], b[1])].first]){
+        return clk_net_map[points_namebits_map[make_pair(a[0], a[1])].first] > clk_net_map[points_namebits_map[make_pair(b[0], b[1])].first];
+    }
     return type_bits_map[points_namebits_map[make_pair(a[0], a[1])].second] > type_bits_map[points_namebits_map[make_pair(b[0], b[1])].second]; // sort points by ff's bits in decreasing order
 }
 
@@ -142,6 +155,7 @@ bool CompareByBits(vector<double>& a, vector<double>& b, map<pair<double, double
 void InputParsing(char *fname)
 {
     string line;
+    int clk_group_idx = 0;
 
     ifstream file(fname);
     if (!file.is_open()) {
@@ -208,14 +222,21 @@ void InputParsing(char *fname)
         } else if (key == "Net") {
             Net net;
             iss >> net.name >> net.numPins; // ex: Net net36760 5
-            for (int i = 0; i < net.numPins; ++i) {
+            for(int i = 0; i < net.numPins; ++i){
                 getline(file, line);
                 istringstream pinIss(line);
                 string pin;
                 string connect;
                 pinIss >> pin >> connect;
+                if(connect.size() >= 4 && connect.compare(connect.size() - 4, 4, "/CLK") == 0){
+                    // get the pin name extracting "/CLK", which is the ffname
+                    string ffname = connect.substr(0, connect.find('/'));
+                    // map the ffname to its clk group
+                    clk_net_map[ffname] = clk_group_idx;
+                }
                 net.pins.push_back(connect);
             }
+            clk_group_idx++;
             nets.push_back(net);
         } else if (key == "BinWidth") {
             iss >> binWidth;
@@ -241,6 +262,10 @@ void InputParsing(char *fname)
             gatePowers.push_back(gatePower);
         } 
     }
+
+    // for(std::map<string, int>::iterator it = clk_net_map.begin(); it != clk_net_map.end(); it++){
+    //     std::cout << "id: " << (*it).first << ", name: " << (*it).second << "\n";
+    // }
 
     file.close();
 }
@@ -346,7 +371,6 @@ int main(int argc, char *argv[]) {
     map<pair<double, double>, pair<string, string>> points_namebits_map;
 
     // ofstream csvFile("testcase1.csv");
-    int n;
     for(const auto& instance : instances){
         // Find the corresponding FlipFlop
         for(auto& flipFlop : flipFlops){
@@ -357,7 +381,6 @@ int main(int argc, char *argv[]) {
                 point.push_back(instance.y);
                 points.push_back(point);
 
-                n = type_bits_map[instance.type_name];
                 points_namebits_map[make_pair(instance.x, instance.y)] = make_pair(instance.inst_name, instance.type_name);
             }
         }
@@ -385,7 +408,7 @@ int main(int argc, char *argv[]) {
 
     for(int cluster = 0; cluster < clusters.size(); cluster++){
         sort(clusters[cluster].original_points.begin(), clusters[cluster].original_points.end(),
-            [&points_namebits_map](vector<double>& a, vector<double>& b){
+            [&points_namebits_map](vector<double>& a, vector<double>& b){ // lambda function
                 return CompareByBits(a, b, points_namebits_map);
             });
     }
@@ -410,12 +433,16 @@ int main(int argc, char *argv[]) {
         vector<string> strvec;
         vector<double> x_vec;
         vector<double> y_vec;
-        
 
         for(int point = 0; point < clusters[cluster].original_points.size(); point++){
             // check which inst_name the point corresponds to in instances
             string str = points_namebits_map[make_pair(clusters[cluster].original_points[point][0], clusters[cluster].original_points[point][1])].first;
             int b = type_bits_map[points_namebits_map[make_pair(clusters[cluster].original_points[point][0], clusters[cluster].original_points[point][1])].second];
+
+            string next_str;
+            if(point != clusters[cluster].original_points.size()-1){ // last point doesn't have next_str
+                next_str = points_namebits_map[make_pair(clusters[cluster].original_points[point+1][0], clusters[cluster].original_points[point+1][1])].first;
+            }
 
             if(b == max_bit){ // it's already a max-bit flipflop
                 reg_map[str] = t.first + to_string(new_idx);
@@ -467,14 +494,14 @@ int main(int argc, char *argv[]) {
                     vector <double>().swap(x_vec); // clear x_vec
                     vector <double>().swap(y_vec); // clear y_vec
 
-                }else if(bitcnt + b < max_bit && point != clusters[cluster].original_points.size()-1){
+                }else if((bitcnt + b < max_bit) && (point != clusters[cluster].original_points.size()-1) && (clk_net_map[str] == clk_net_map[next_str])){
                     // cout << "1" << endl;
                     bitcnt += b;
                     strvec.push_back(str);
                     x_vec.push_back(clusters[cluster].original_points[point][0]);
                     y_vec.push_back(clusters[cluster].original_points[point][1]);
 
-                }else if(bitcnt + b < max_bit && point == clusters[cluster].original_points.size()-1){ // remain elements
+                }else if((bitcnt + b < max_bit) && ((point == clusters[cluster].original_points.size()-1) || (clk_net_map[str] != clk_net_map[next_str])) ){ // deal with the remaining elements
                     // cout << "3" << endl;
                     bitcnt += b; // ex: 7 = 2+2+1+1+1, max_bit = 8
                     strvec.push_back(str);
@@ -532,6 +559,11 @@ int main(int argc, char *argv[]) {
                             }
                         }
                     }
+                    bitcnt = 0; // reset bitcnt
+                    vector <string>().swap(strvec); // clear strvec
+                    vector <double>().swap(x_vec); // clear x_vec
+                    vector <double>().swap(y_vec); // clear y_vec
+
                     // // Don't do banking
                     // strvec.push_back(str);
                     // for(int i=0; i<strvec.size(); i++){
@@ -550,11 +582,8 @@ int main(int argc, char *argv[]) {
 
                 }
             }
-            cout << str << " " << b << "bits ";
-            fout << str << " " << b << "bits ";
-
-            cout << clusters[cluster].original_points[point][0] << " " << clusters[cluster].original_points[point][1] << " ";
-            fout << clusters[cluster].original_points[point][0] << " " << clusters[cluster].original_points[point][1] << " ";
+            cout << str << " " << b << "bits " << clusters[cluster].original_points[point][0] << " " << clusters[cluster].original_points[point][1] << " ";
+            fout << str << " " << b << "bits " << clusters[cluster].original_points[point][0] << " " << clusters[cluster].original_points[point][1] << " ";
 
             cout << "-> ";
             fout << "-> ";
