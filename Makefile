@@ -23,6 +23,9 @@
 # clean:
 # 	rm -f $(TARGETS) *.o
 
+
+############################################ v2
+
 CXX = g++
 CXXFLAGS = -std=c++14 -O3 -g 
 
@@ -49,3 +52,31 @@ $(TARGET): $(OBJS)
 clean:
 	rm -f $(TARGET) $(OBJS)
 
+
+############################################ v3
+
+# CXX = g++
+# CXXFLAGS = -std=c++14 -O3 -g -I /opt/homebrew/opt/boost/include
+# LDFLAGS = -L /opt/homebrew/opt/boost/lib -lboost_system -lboost_filesystem
+
+# # 定义目标二进制文件
+# TARGET = input_process
+
+# # 源文件
+# SRCS = input_process.cpp MeanShift.cpp
+# OBJS = $(SRCS:.cpp=.o)
+
+# # 编译所有目标
+# all: $(TARGET)
+
+# # 编译目标二进制文件
+# $(TARGET): $(OBJS)
+# 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
+
+# # 编译 .cpp 文件为 .o 文件的规则
+# %.o: %.cpp
+# 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# # 清理生成的文件
+# clean:
+# 	rm -f $(TARGET) $(OBJS)
