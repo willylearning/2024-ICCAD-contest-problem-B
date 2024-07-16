@@ -213,13 +213,14 @@ void placementAlg(map<string, string> &name_type_map, map<string, string> &reg_m
             place[rowCount].place[temp2].isPlace = true;
         }
         // determine the column
-
+        
         if (temp2 > 1) {
             for(int i = 1; i < temp2; ++i) {
                 
             }
         }
         // determine the row 
+
     }
 }
 
