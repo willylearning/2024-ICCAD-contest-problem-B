@@ -24,8 +24,7 @@
 # 	rm -f $(TARGETS) *.o
 
 CXX = g++
-CXXFLAGS = -std=c++14 -O3 -g 
-
+CXXFLAGS = -std=c++14 -O3 -g -I /home/willy/anaconda3/include/boost -L /home/willy/anaconda3/lib/
 
 # 定义目标二进制文件
 TARGET = input_process

@@ -90,12 +90,14 @@ struct GatePower {
     double powerConsumption;
 };
 
-// FlipFlop lib, FlipFlop <bits> <flipFlopName> <flipFlopWidth> <flipFlopHeight> <pinCount>
-struct stFFValue {
-  int bits;
-  int ffWidth;
-  int ffHeight;
-  int pinCount;
+// FlipFlop Lib parameters: FlipFlop <bits> <flipFlopName> <flipFlopWidth> <flipFlopHeight> <pinCount>
+struct stFFValue { 
+  int bits;   // no use
+  int ffWidth;   
+  int ffHeight;  
+  int pinCount;  // no use
+  int siteC;  // convert ffWidth to site count
+  int siteR;  // convert ffHeight to site count  
 };
 
 // Gate values, Gate <gateName> <gateWidth> <gateHeight> <pinCount>
@@ -180,7 +182,9 @@ bool CompareByBits(vector<double>& a, vector<double>& b, map<pair<double, double
 
 struct stPlacementBM {
     // PlacementRows <startX> <startY> <siteWidth> <siteHeight> <totalNumOfSites>
-    uint8_t* byteMap;      // byteMap array for PlacementRows, 1-byte for a cell-site
+    //uint8_t* byteMap;      // byteMap array for PlacementRows, 1-byte for a cell-site
+    std::vector<std::vector<uint8_t>> byteMap;
+
     int  bmRows, bmCols;
     int  startX, startY;
     int  siteWidth, siteHeight; //cjdbg, int or float?
@@ -189,25 +193,26 @@ struct stPlacementBM {
     void ShowByteMap(void);
     bool GateSetByteMap(Instance cell);
     bool FFSetByteMap(Instance cell, double x, double y);
-    void DeleteByteMap(void);
+    bool FindSubarray(const std::vector<std::vector<uint8_t>>& A, int n, int m);
+    //void DeleteByteMap(void);
 } placementBM;
 
-bool stPlacementBM::GateSetByteMap(Instance cell){
+bool stPlacementBM::GateSetByteMap(Instance gate){
 
-    stGateValue gateValue = kmGateLib[cell.type_name];
+    stGateValue gateValue = kmGateLib[gate.type_name];
 
     // (c0,r0): indices of lower-left corner, (c1,r1): indices of upper-right corner
     // e.g: (x,y)=(10,10), (siteW,siteh)=(2,10), (gateW,gateH)=(5,10)
-    int c0 = floor((cell.x - startX) / siteWidth);
-    int r0 = floor((cell.y - startY) / siteHeight);
-    int c1 = ceil((cell.x + gateValue.gateWidth - startX) / siteWidth) - 1;
-    int r1 = ceil((cell.y + gateValue.gateHeight - startY) / siteHeight) - 1;
+    int c0 = floor((gate.x - startX) / siteWidth);
+    int r0 = floor((gate.y - startY) / siteHeight);
+    int c1 = ceil((gate.x + gateValue.gateWidth - startX) / siteWidth) - 1;
+    int r1 = ceil((gate.y + gateValue.gateHeight - startY) / siteHeight) - 1;
 #if _DBG_BMAP
-    cout << "GateSetBitMap: " << cell.type_name << ", @(" << cell.x << ", " << cell.y << ")";
+    cout << "GateSetBitMap: " << gate.type_name << ", @(" << gate.x << ", " << gate.y << ")";
 #endif
     for (int r=r0; r<=r1; r++){
         for (int c=c0; c<=c1; c++){
-            if (byteMap[r*bmCols + c]==1) {
+            if (byteMap[r][c]) { // not 0
 #if _DBG_BMAP
                 cout << "NG!!" << endl;
 #endif
@@ -218,7 +223,7 @@ bool stPlacementBM::GateSetByteMap(Instance cell){
 
     for (int r=r0; r<=r1; r++){
         for (int c=c0; c<=c1; c++){
-            byteMap[r*bmCols + c] = 1;
+            byteMap[r][c] = 1;
         }
     }
 #if _DBG_BMAP
@@ -227,9 +232,9 @@ bool stPlacementBM::GateSetByteMap(Instance cell){
     return true;
 }
 
-bool stPlacementBM::FFSetByteMap(Instance cell, double x, double y){
+bool stPlacementBM::FFSetByteMap(Instance newFlipFlop, double x, double y){
 
-    stFFValue ffValue = kmFFLib[cell.type_name];
+    stFFValue ffValue = kmFFLib[newFlipFlop.type_name];
 
     // (c0,r0): indices of lower-left corner, (c1,r1): indices of upper-right corner
     // e.g: (x,y)=(10,10), (siteW,siteh)=(2,10), (gateW,gateH)=(5,10)
@@ -238,11 +243,11 @@ bool stPlacementBM::FFSetByteMap(Instance cell, double x, double y){
     int c1 = ceil((x + ffValue.ffWidth - startX) / siteWidth) - 1;
     int r1 = ceil((y + ffValue.ffHeight - startY) / siteHeight) - 1;
 #if _DBG_BMAP
-    cout << "FFSetBitMap: " << cell.type_name << ", @(" << x << ", " << y << ")";
+    cout << "FFSetBitMap: " << newFlipFlop.type_name << ", @(" << x << ", " << y << ")";
 #endif
     for (int r=r0; r<=r1; r++){
         for (int c=c0; c<=c1; c++){
-            if (byteMap[r*bmCols + c]==1) {
+            if (byteMap[r][c]) { // not 0
 #if _DBG_BMAP
                 cout << "NG!!" << endl;
 #endif
@@ -253,7 +258,7 @@ bool stPlacementBM::FFSetByteMap(Instance cell, double x, double y){
 
     for (int r=r0; r<=r1; r++){
         for (int c=c0; c<=c1; c++){
-            byteMap[r*bmCols + c] = 1;
+            byteMap[r][c] = 2;
         }
     }
 #if _DBG_BMAP
@@ -263,7 +268,7 @@ bool stPlacementBM::FFSetByteMap(Instance cell, double x, double y){
 }
 
 void stPlacementBM::CreateByteMap(void) {
-    cout << "CreateByteMap:" << endl;
+    cout << "CreateByteMap" << endl;
 
     bmRows = placementRows.size();
     bmCols = placementRows[0].totalNumOfSites;
@@ -275,15 +280,18 @@ void stPlacementBM::CreateByteMap(void) {
     startY = placementRows[0].startY;
     siteWidth = placementRows[0].siteWidth;
     siteHeight = placementRows[0].siteHeight;
-    cout << " placementRow[0]: " << startX << ", " << startY << ", "
+    cout << "placementRow: " << startX << ", " << startY << ", "
          << siteWidth << ", " << siteHeight << ", " << placementRows[0].totalNumOfSites << endl;
-    cout << " [r, c] = " << bmRows << ',' << bmCols << endl;
-    byteMap = new uint8_t [bmRows * bmCols];
-    // Initialize all elements to zero
-    for (int i = 0; i < bmRows * bmCols; i++) {
-        byteMap[i] = 0;
-    }
+    cout << "[r, c] = " << bmRows << ',' << bmCols << endl;
 
+    // Allocate memory for rows
+    byteMap.resize(bmRows);
+
+    // Allocate memory for each column within each row
+    for (int i = 0; i < bmRows; ++i) {
+        byteMap[i].resize(bmCols, 0); // Initialize with 0 (unoccupied)
+    }
+    
     for (const auto& instance : gateInstances) {
         GateSetByteMap(instance);
     }
@@ -291,34 +299,47 @@ void stPlacementBM::CreateByteMap(void) {
 
 void stPlacementBM::ShowByteMap(void)
 {
-    for (int row=0; row<bmRows; row++){
-        cout << "r" << row;
-        for (int col=0; col<bmCols; col++) {
-        #if 1   // byteMap
-            if (byteMap[row*bmCols + col])
-                cout << 'x';
+    for (int r=0; r<bmRows; r++){
+        cout << "r" << r;
+        for (int c=0; c<bmCols; c++) {
+            if (byteMap[r][c]==1)
+                cout << 'G';
+            else if (byteMap[r][c]==2)
+                cout << 'F';
             else
                 cout << '.';
-        #else   // bitMap
-            int num = bitMap[row*bmCols + col];
-            //cout << "cj " << col << ':' << num;
-            for (int b=0; b<(sizeof(int)*8); b++){
-                if (num & 1 == 1) {
-                    cout << '1';
-                }
-                else {
-                    cout << '.';
-                }
-                num = num >> 1;     // Shift right to move to the next bit
-            }
-        #endif
         }
         cout << endl;
     }
 }
 
-void stPlacementBM::DeleteByteMap(void){
-    delete [] byteMap;
+bool stPlacementBM::FindSubarray(const std::vector<std::vector<uint8_t>>& A, int n, int m)
+{
+  int rows = A.size();
+  int cols = A[0].size();
+
+  for (int i = 0; i < rows - n + 1; ++i) {
+    for (int j = 0; j < cols - m + 1; ++j) {
+      bool isValid = true;
+      for (int r = i; r < i + n; ++r) {
+        for (int c = j; c < j + m; ++c) {
+          if (A[r][c]) {
+            isValid = false;
+            break;
+          }
+        }
+        if (!isValid) {
+          break;
+        }
+      }
+      if (isValid) {
+        //ToDO: fill up array and return (r,c)
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 
@@ -591,12 +612,6 @@ int main(int argc, char *argv[]) {
     InputParsing(argv[1]);
     DisplayParsing();
 
-    placementBM.CreateByteMap();
-    placementBM.ShowByteMap();
-    //placementBM.SetBitMap(placementRows[0].startX, placementRows[0].startY, 100, 200); //cjdbg, test only
-    placementBM.DeleteByteMap();
-    
-
     vector<int> possible_bits_vec(possible_bits.begin(), possible_bits.end());
     reverse(possible_bits_vec.begin(), possible_bits_vec.end());
     max_bit = possible_bits_vec[0];
@@ -625,7 +640,7 @@ int main(int argc, char *argv[]) {
             }
         }
     }
-    
+
     // Cluster
     MeanShift *msp = new MeanShift();
     double kernel_bandwidth = 10;
@@ -858,6 +873,14 @@ int main(int argc, char *argv[]) {
     for(auto new_instance : new_instances){
         cout << new_instance.inst_name << " " << new_instance.type_name << " " << new_instance.x << " " << new_instance.y << endl;
     }
+
+    placementBM.CreateByteMap();
+    //for (const auto& instance : ffInstances) {
+    for (const auto& instance : new_instances) {
+        cout << "cj (" << instance.x << "," << instance.y << ")" << endl;
+        placementBM.FFSetByteMap(instance, instance.x, instance.y);
+    }
+    placementBM.ShowByteMap();
 
     fout.close();
 

@@ -27,3 +27,5 @@ g++ -std=c++14 -I /opt/homebrew/opt/boost/include -L /opt/homebrew/opt/boost/lib
 ./b
 
 g++ -std=c++14 -I (path)/include -L (path)/lib boost.cpp -o b -lboost_system -lboost_filesystem
+
+willy's : g++ -std=c++14 -I /home/willy/anaconda3/include/boost -L /home/willy/anaconda3/lib/ boost.cpp -o a -lboost_system -lboost_filesystem

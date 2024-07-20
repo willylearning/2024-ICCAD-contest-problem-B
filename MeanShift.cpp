@@ -54,54 +54,54 @@ void MeanShift::shift_point(const Point &point, const std::vector<Point> &points
     }
     double total_weight = 0;
 
-    // Identifying Effective Neighbors by KNN
-    vector<pair<double, int>> dist_from_point;
-    for(int i = 0; i < points.size(); ++i){
-        if(points[i] != point){
-            double distance = euclidean_distance(points[i], point);
-            dist_from_point.push_back(make_pair(distance, i));
-            // cout << points[i][0] << endl;
-        }  
-    }
+    // // Identifying Effective Neighbors by KNN
+    // vector<pair<double, int>> dist_from_point;
+    // for(int i = 0; i < points.size(); ++i){
+    //     if(points[i] != point){
+    //         double distance = euclidean_distance(points[i], point);
+    //         dist_from_point.push_back(make_pair(distance, i));
+    //         // cout << points[i][0] << endl;
+    //     }  
+    // }
 
-    sort(dist_from_point.begin(), dist_from_point.end(), cmp); // sort dist_from_point by distance
-    // cout << points[0][0] << endl;
+    // sort(dist_from_point.begin(), dist_from_point.end(), cmp); // sort dist_from_point by distance
+    // // cout << points[0][0] << endl;
 
-    vector<double> effective_var_h;
-    vector<Point> effective_neighbors;
-    for(int i=0; i<K; i++){ 
-        // cout << "t1 " << dist_from_point[i].first << ", " << hmax << endl;
-        if(dist_from_point[i].first <= hmax){ // if the neighbor's distance > hmax => excluded neighbor
-            effective_neighbors.push_back(points[dist_from_point[i].second]);
-            effective_var_h.push_back(var_h[dist_from_point[i].second]);
-            // cout << "t2 " << effective_neighbors[i][0] << endl;
-        }
-    }
+    // vector<double> effective_var_h;
+    // vector<Point> effective_neighbors;
+    // for(int i=0; i<K; i++){ 
+    //     // cout << "t1 " << dist_from_point[i].first << ", " << hmax << endl;
+    //     if(dist_from_point[i].first <= hmax){ // if the neighbor's distance > hmax => excluded neighbor
+    //         effective_neighbors.push_back(points[dist_from_point[i].second]);
+    //         effective_var_h.push_back(var_h[dist_from_point[i].second]);
+    //         // cout << "t2 " << effective_neighbors[i][0] << endl;
+    //     }
+    // }
 
-    for(int i=0; i<effective_neighbors.size(); i++){
-        const Point& temp_point = effective_neighbors[i];
-        double distance = euclidean_distance(point, temp_point);
-        // 核函数（如高斯核）計算了每個點的權重，这些權重用於計算當前點的移動方向和距離。這個過程實際上就是在計算梯度
-        double weight = kernel_func(distance, effective_var_h[i]); // change to variable bandwidth
-
-        for(int j=0; j<shifted_point.size(); j++){
-            shifted_point[j] += temp_point[j] * weight;
-            // cout << shifted_point[j] << endl;
-        }
-        total_weight += weight;
-    }
-    
-    // Original version
-    // for(int i=0; i<points.size(); i++){
-    //     const Point& temp_point = points[i];
+    // for(int i=0; i<effective_neighbors.size(); i++){
+    //     const Point& temp_point = effective_neighbors[i];
     //     double distance = euclidean_distance(point, temp_point);
-    //     // 核函数（如高斯核）計算了每個點的權重，这些權重用於計算當前點的移動方向和距離。这个過程實際上就是在計算梯度
-    //     double weight = kernel_func(distance, var_h[i]); // change to variable bandwidth
+    //     // 核函数（如高斯核）計算了每個點的權重，这些權重用於計算當前點的移動方向和距離。這個過程實際上就是在計算梯度
+    //     double weight = kernel_func(distance, effective_var_h[i]); // change to variable bandwidth
+
     //     for(int j=0; j<shifted_point.size(); j++){
     //         shifted_point[j] += temp_point[j] * weight;
+    //         // cout << shifted_point[j] << endl;
     //     }
     //     total_weight += weight;
     // }
+    
+    // Original version
+    for(int i=0; i<points.size(); i++){
+        const Point& temp_point = points[i];
+        double distance = euclidean_distance(point, temp_point);
+        // 核函数（如高斯核）計算了每個點的權重，这些權重用於計算當前點的移動方向和距離。这个過程實際上就是在計算梯度
+        double weight = kernel_func(distance, var_h[i]); // change to variable bandwidth
+        for(int j=0; j<shifted_point.size(); j++){
+            shifted_point[j] += temp_point[j] * weight;
+        }
+        total_weight += weight;
+    }
 
     const double total_weight_inv = 1.0/total_weight;
     // knn function
@@ -170,10 +170,16 @@ vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, d
     vector<Point> a(points.size()); // distances between every point and points[i] 
     vector<double> var_h;
     double hmax = 100000; // need to be tested how big it should be
-    int alpha = 5; // need to be determined
+    int alpha = 1; // need to be determined
     int M = 2;
 
     // find the M-th nearest neighbor of every point in points
+    // auto cmp = [](vector<double>& a, vector<double>& b, vector<double>& c) {
+    //         return euclidean_distance(a, c) < euclidean_distance(b, c);
+    // };
+
+    // nth_element(points.begin(), points.begin()+M, points.end(), cmp);
+    
     for(int i=0; i<points.size(); i++){
         for(int j=0; j<points.size(); j++){
             if(points[i] != points[j]){
@@ -181,13 +187,15 @@ vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, d
                 a[i].push_back(euclidean_distance(points[i], points[j])); 
             }
         }
-        sort(a[i].begin(), a[i].end());
+        // sort(a[i].begin(), a[i].end());
+        nth_element(a[i].begin(), a[i].begin() + M - 1, a[i].end());
+        var_h.push_back(a[i][M-1]);
     }
-    double tmp = 0;
-    for(int i=0; i<points.size(); i++){ 
-        tmp = alpha*a[i][M-1]; // M-th nearest points
-        var_h.push_back(min(hmax, tmp));
-    }
+    // double tmp = 0;
+    // for(int i=0; i<points.size(); i++){ 
+    //     tmp = alpha*a[i][M-1]; // M-th nearest points
+    //     var_h.push_back(min(hmax, tmp));
+    // }
 
     return var_h;
 }
