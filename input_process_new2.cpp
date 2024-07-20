@@ -188,13 +188,14 @@ void createPlace(vector<PlacementRow> &placementRows, vector<PlacesSite> &place,
         c++;
     }
 }
+map<string, FlipFlop> name_ff_map;
 
-void placementAlg(map<string, string> &name_type_map, map<string, string> &reg_map, vector<PlacementRow> &placementRows, vector<Instance>  &instances, vector<PlacesSite> &place, map<float, PlacesSite> &place_row_map) {
+void placementAlg(map<string, FlipFlop> &name_ff_map, map<string, string> &reg_map, vector<PlacementRow> &placementRows, vector<Instance>  &instances, vector<PlacesSite> &place, map<float, PlacesSite> &place_row_map) {
     for (const auto &instance : instances) {
         // instance informations
         //------------------------------
-        // float instanceWidth = instance.type_name;
-        // float instanceHieght = ;
+        float instanceWidth = name_ff_map[instance.type_name].width;
+        float instanceHieght = name_ff_map[instance.type_name].height;
         //------------------------------
         // placemnent informations
         float closeRow = findClosestKey(place_row_map, instance.y);
@@ -204,20 +205,37 @@ void placementAlg(map<string, string> &name_type_map, map<string, string> &reg_m
 
         int temp2;
         int rowCount = place_row_map[closeRow].rowCount;
+        int count = 0;
+
+        // check the point we want to place
         if(temp-(int)temp>0.5) {
             temp2 = (int)temp + 1;
         } else {
             temp2 = (int)temp;
         }
+        while(instanceWidth > width) {
+            instanceWidth-=width;
+            if (place_row_map[closeRow].place[temp+count].isPlace == true){
+                temp-=1;
+            }else{
+                count++;
+            }
+        }
+
+        while(instanceHieght > hieght) {
+
+        }
         if(place[rowCount].place[temp2].isPlace == false){
             place[rowCount].place[temp2].isPlace = true;
         }
         // determine the column
-        
-        if (temp2 > 1) {
-            for(int i = 1; i < temp2; ++i) {
+        // if (instanceWidth > width) {
+        //     for(int i = 1; i < ; ++i) {
                 
-            }
+        //     }
+        // }
+        while(instanceWidth > width) {
+
         }
         // determine the row 
 
