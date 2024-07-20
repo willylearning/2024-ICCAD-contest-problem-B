@@ -94,7 +94,7 @@ vector<vector<pair<double, int> > > parseCSV(const string& filename) {
 void MeanShift::shift_point(const Point &point, const std::vector<Point> &points, double kernel_bandwidth, Point &shifted_point, int index) {
     // point : current center point, points : all data points
     double hmax = 100000; // need to be tested how big it should be
-    int K = 5; // need to be tested how big it should be
+    int K = 2; // need to be tested how big it should be
     vector<double> var_h = variable_bandwidth(points, kernel_bandwidth);
     shifted_point.resize(point.size());
     for(int dim = 0; dim<shifted_point.size(); dim++){
@@ -158,10 +158,12 @@ void MeanShift::shift_point(const Point &point, const std::vector<Point> &points
     // for(int i=0; i<points.size(); i++){
     //     const Point& temp_point = points[i];
     //     double distance = euclidean_distance(point, temp_point);
-    //     // 核函数（如高斯核）計算了每個點的權重，这些權重用於計算當前點的移動方向和距離。这个過程實際上就是在計算梯度
-    //     double weight = kernel_func(distance, var_h[i]); // change to variable bandwidth
+    //     // 核函数（如高斯核）計算了每個點的權重，这些權重用於計算當前點的移動方向和距離。這個過程實際上就是在計算梯度
+    //     double weight = kernel_func(distance, effective_var_h[i]); // change to variable bandwidth
+
     //     for(int j=0; j<shifted_point.size(); j++){
     //         shifted_point[j] += temp_point[j] * weight;
+    //         // cout << shifted_point[j] << endl;
     //     }
     //     total_weight += weight;
     // }
@@ -203,6 +205,7 @@ vector<Cluster> MeanShift::cluster(const std::vector<Point> &points, const std::
     vector<Cluster> clusters;
 
     for (int i = 0; i < shifted_points.size(); i++){
+
         int c = 0;
         for (; c < clusters.size(); c++) {
             if (euclidean_distance(shifted_points[i], clusters[c].mode) <= CLUSTER_EPSILON) {
@@ -232,10 +235,16 @@ vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, d
     vector<Point> a(points.size()); // distances between every point and points[i] 
     vector<double> var_h;
     double hmax = 100000; // need to be tested how big it should be
-    int alpha = 100000000; // need to be determined
-    int M = 5;
+    int alpha = 1; // need to be determined
+    int M = 2;
 
     // find the M-th nearest neighbor of every point in points
+    // auto cmp = [](vector<double>& a, vector<double>& b, vector<double>& c) {
+    //         return euclidean_distance(a, c) < euclidean_distance(b, c);
+    // };
+
+    // nth_element(points.begin(), points.begin()+M, points.end(), cmp);
+    
     for(int i=0; i<points.size(); i++){
         for(int j=0; j<points.size(); j++){
             if(points[i] != points[j]){
@@ -243,13 +252,15 @@ vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, d
                 a[i].push_back(euclidean_distance(points[i], points[j])); 
             }
         }
-        sort(a[i].begin(), a[i].end());
+        // sort(a[i].begin(), a[i].end());
+        nth_element(a[i].begin(), a[i].begin() + M - 1, a[i].end());
+        var_h.push_back(a[i][M-1]);
     }
-    double tmp = 0;
-    for(int i=0; i<points.size(); i++){ 
-        tmp = alpha*a[i][M-1]; // M-th nearest points
-        var_h.push_back(min(hmax, tmp));
-    }
+    // double tmp = 0;
+    // for(int i=0; i<points.size(); i++){ 
+    //     tmp = alpha*a[i][M-1]; // M-th nearest points
+    //     var_h.push_back(min(hmax, tmp));
+    // }
 
     return var_h;
 }
