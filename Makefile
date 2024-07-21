@@ -24,7 +24,11 @@
 # 	rm -f $(TARGETS) *.o
 
 CXX = g++
-CXXFLAGS = -std=c++14 -O3 -g -I /home/willy/anaconda3/include/boost -L /home/willy/anaconda3/lib/
+CXXFLAGS = -std=c++14 -O3 -g
+
+# Boost库的路径
+BOOST_INCLUDES = -I/home/willy/anaconda3/include/boost
+BOOST_LIBS = -L/home/willy/anaconda3/lib -lboost_system -lboost_filesystem
 
 # 定义目标二进制文件
 TARGET = input_process
@@ -38,11 +42,11 @@ all: $(TARGET)
 
 # 编译目标二进制文件
 $(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CXX) $(CXXFLAGS) $(BOOST_LIBS) -o $@ $^
 
 # 编译 .cpp 文件为 .o 文件的规则
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(BOOST_INCLUDES) -c $< -o $@
 
 # 清理生成的文件
 clean:

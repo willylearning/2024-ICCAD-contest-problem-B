@@ -643,9 +643,8 @@ int main(int argc, char *argv[]) {
 
     // Cluster
     MeanShift *msp = new MeanShift();
-    double kernel_bandwidth = 10;
+    double kernel_bandwidth = 1000;
     
-
     vector<Cluster> clusters = msp->cluster(points, kernel_bandwidth); // generate clustering result
     // assert(0);
 

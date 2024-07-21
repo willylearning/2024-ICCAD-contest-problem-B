@@ -3,11 +3,22 @@
 #include <math.h>
 #include <algorithm>
 #include <float.h>
+#include <boost/geometry.hpp>
+#include <boost/geometry/index/rtree.hpp>
+#include <boost/geometry/geometries/point.hpp>
+#include <boost/geometry/geometries/box.hpp>
 #include "MeanShift.h"
 
 using namespace std;
 
+namespace bg = boost::geometry;
+namespace bgi = boost::geometry::index;
+
+using BoostPoint = bg::model::point<double, 2, bg::cs::cartesian>; // 2維點
+using Value = std::pair<BoostPoint, size_t>;
+
 #define CLUSTER_EPSILON 0.5
+
 
 double euclidean_distance(const vector<double> &point_a, const vector<double> &point_b){
     double total = 0;
@@ -43,11 +54,11 @@ bool cmp(pair<double, int> a, pair<double, int> b){
     return a.first < b.first;
 }
 
-void MeanShift::shift_point(const Point &point, const std::vector<Point> &points, double kernel_bandwidth, Point &shifted_point) {
+void MeanShift::shift_point(const Point &point, const std::vector<Point> &points, double kernel_bandwidth, Point &shifted_point, vector<double> var_h) {
     // point : current center point, points : all data points
     double hmax = 100000; // need to be tested how big it should be
     int K = 2; // need to be tested how big it should be
-    vector<double> var_h = variable_bandwidth(points, kernel_bandwidth);
+    // vector<double> var_h = variable_bandwidth(points, kernel_bandwidth);
     shifted_point.resize(point.size());
     for(int dim = 0; dim<shifted_point.size(); dim++){
         shifted_point[dim] = 0;
@@ -110,7 +121,7 @@ void MeanShift::shift_point(const Point &point, const std::vector<Point> &points
     }
 }
 
-std::vector<MeanShift::Point> MeanShift::meanshift(const std::vector<Point> &points, double kernel_bandwidth, double EPSILON){
+std::vector<MeanShift::Point> MeanShift::meanshift(const std::vector<Point> &points, double kernel_bandwidth, vector<double> var_h, double EPSILON){
     const double EPSILON_SQR = EPSILON*EPSILON; // determine when to converge
     vector<bool> stop_moving(points.size(), false);
     vector<Point> shifted_points = points;
@@ -120,7 +131,9 @@ std::vector<MeanShift::Point> MeanShift::meanshift(const std::vector<Point> &poi
         max_shift_distance = 0;
         for(int i=0; i<points.size(); i++){
             if (!stop_moving[i]) {
-                shift_point(shifted_points[i], points, kernel_bandwidth, point_new);
+                // cout << "hi" << endl;
+                shift_point(shifted_points[i], points, kernel_bandwidth, point_new, var_h);
+                // cout << "hello" << endl;
                 double shift_distance_sqr = euclidean_distance_sqr(point_new, shifted_points[i]);
                 if(shift_distance_sqr > max_shift_distance){
                     max_shift_distance = shift_distance_sqr;
@@ -162,39 +175,59 @@ vector<Cluster> MeanShift::cluster(const std::vector<Point> &points, const std::
 }
 
 vector<Cluster> MeanShift::cluster(const std::vector<Point> &points, double kernel_bandwidth){
-    vector<Point> shifted_points = meanshift(points, kernel_bandwidth);
+    vector<double> var_h = variable_bandwidth(points, kernel_bandwidth);
+    vector<Point> shifted_points = meanshift(points, kernel_bandwidth, var_h);
     return cluster(points, shifted_points);
 }
 
 vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, double kernel_bandwidth){ // Point is vector<double>
     vector<Point> a(points.size()); // distances between every point and points[i] 
     vector<double> var_h;
-    double hmax = 100000; // need to be tested how big it should be
-    int alpha = 1; // need to be determined
-    int M = 2;
+    // double hmax = 100000; // need to be tested how big it should be
+    // int alpha = 1; // need to be determined
+    int M = 10000;
 
-    // find the M-th nearest neighbor of every point in points
-    // auto cmp = [](vector<double>& a, vector<double>& b, vector<double>& c) {
-    //         return euclidean_distance(a, c) < euclidean_distance(b, c);
-    // };
+     // Create R-tree
+    bgi::rtree<Value, bgi::quadratic<16>> rtree;
+    for (size_t i = 0; i < points.size(); ++i) {
+        rtree.insert(std::make_pair(BoostPoint(points[i][0], points[i][1]), i));
+    }
 
-    // nth_element(points.begin(), points.begin()+M, points.end(), cmp);
-    
-    for(int i=0; i<points.size(); i++){
-        for(int j=0; j<points.size(); j++){
-            if(points[i] != points[j]){
-                // the Euclidean distance between register i and its M-th nearest neighbor
-                a[i].push_back(euclidean_distance(points[i], points[j])); 
+    for (size_t i = 0; i < points.size(); ++i) {
+        const auto& point = points[i];
+        BoostPoint query_point(point[0], point[1]);
+        std::vector<Value> result_n;
+
+        // Perform k-nearest neighbor search (k = M+1 to exclude the point itself)
+        rtree.query(bgi::nearest(query_point, M + 1), std::back_inserter(result_n));
+
+        std::vector<double> distances;
+        for (const auto& value : result_n) {
+            if (value.second != i) { // Skip the point itself
+                distances.push_back(euclidean_distance(point, points[value.second]));
             }
         }
-        // sort(a[i].begin(), a[i].end());
-        nth_element(a[i].begin(), a[i].begin() + M - 1, a[i].end());
-        var_h.push_back(a[i][M-1]);
+
+        // Sort distances and take the M-th nearest
+        if (distances.size() >= M) {
+            std::nth_element(distances.begin(), distances.begin() + M - 1, distances.end());
+            var_h.push_back(distances[M - 1]);
+        } else {
+            var_h.push_back(0.0); // Handle case where there are not enough neighbors
+        }
     }
-    // double tmp = 0;
-    // for(int i=0; i<points.size(); i++){ 
-    //     tmp = alpha*a[i][M-1]; // M-th nearest points
-    //     var_h.push_back(min(hmax, tmp));
+
+    // // find the M-th nearest neighbor of every point in points
+    // for(int i=0; i<points.size(); i++){
+    //     for(int j=0; j<points.size(); j++){
+    //         if(points[i] != points[j]){
+    //             // the Euclidean distance between register i and its M-th nearest neighbor
+    //             a[i].push_back(euclidean_distance(points[i], points[j])); 
+    //         }
+    //     }
+    //     // sort(a[i].begin(), a[i].end());
+    //     nth_element(a[i].begin(), a[i].begin() + M - 1, a[i].end());
+    //     var_h.push_back(a[i][M-1]);
     // }
 
     return var_h;
