@@ -1,0 +1,11 @@
+Found 4 clusters
+====================
+
+Cluster 0:
+reg1 1bits 5952 3600 -> reg5 
+Cluster 1:
+reg2 1bits 1278 3600 -> reg6 
+Cluster 2:
+reg3 1bits 1278 6000 -> reg7 
+Cluster 3:
+reg4 1bits 3615 3600 -> reg8 

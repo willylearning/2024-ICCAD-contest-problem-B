@@ -54,40 +54,40 @@ bool cmp(pair<double, int> a, pair<double, int> b){
     return a.first < b.first;
 }
 
-vector<vector<pair<double, int> > > parseCSV(const string& filename) {
-    vector<vector<pair<double, int> > > data;
-    ifstream file(filename);
+// vector<vector<pair<double, int> > > parseCSV(const string& filename) {
+//     vector<vector<pair<double, int> > > data;
+//     ifstream file(filename);
 
-    if (!file.is_open()) {
-        cerr << "Could not open the file!" << endl;
-        return data;
-    }
+//     if (!file.is_open()) {
+//         cerr << "Could not open the file!" << endl;
+//         return data;
+//     }
 
-    string line;
-    while (getline(file, line)) {
-        vector<pair<double, int> > row;
-        stringstream ss(line);
-        string value;
-        bool isDouble = true;
-        double doubleVal;
-        int intVal;
+//     string line;
+//     while (getline(file, line)) {
+//         vector<pair<double, int> > row;
+//         stringstream ss(line);
+//         string value;
+//         bool isDouble = true;
+//         double doubleVal;
+//         int intVal;
 
-        while (getline(ss, value, ',')) {
-            if (isDouble) {
-                doubleVal = stod(value);
-            } else {
-                intVal = stoi(value);
-                row.push_back(make_pair(doubleVal, intVal));
-            }
-            isDouble = !isDouble;
-        }
+//         while (getline(ss, value, ',')) {
+//             if (isDouble) {
+//                 doubleVal = stod(value);
+//             } else {
+//                 intVal = stoi(value);
+//                 row.push_back(make_pair(doubleVal, intVal));
+//             }
+//             isDouble = !isDouble;
+//         }
 
-        data.push_back(row);
-    }
+//         data.push_back(row);
+//     }
 
-    file.close();
-    return data;
-}
+//     file.close();
+//     return data;
+// }
 
 
 
@@ -102,9 +102,9 @@ void MeanShift::shift_point(const Point &point, const std::vector<Point> &points
     }
     double total_weight = 0;
 
-    string file_path = "knn_results.csv";
-    vector<vector<pair<double, int> > > info;
-    info = vector<vector<pair<double, int> > > parseCSV(const string& file_path);
+    // string file_path = "knn_results.csv";
+    // vector<vector<pair<double, int> > > info;
+    // info = vector<vector<pair<double, int> > > parseCSV(const string& file_path);
 
     // // Identifying Effective Neighbors by KNN
     // vector<pair<double, int>> dist_from_point;
@@ -130,6 +130,16 @@ void MeanShift::shift_point(const Point &point, const std::vector<Point> &points
     //     }
     // }
 
+    // for(int i=0; i<info[index].size(); i++){ 
+    //     // cout << "t1 " << dist_from_point[i].first << ", " << hmax << endl;
+    //     if(info[index][i].second <= hmax){ // if the neighbor's distance > hmax => excluded neighbor
+    //         effective_neighbors.push_back(points[info[index][i].first]);
+    //         effective_var_h.push_back(var_h[info[index][i].first]);
+    //         // cout << "t2 " << effective_neighbors[i][0] << endl;
+    //     }
+    // }
+
+
     // for(int i=0; i<effective_neighbors.size(); i++){
     //     const Point& temp_point = effective_neighbors[i];
     //     double distance = euclidean_distance(point, temp_point);
@@ -143,6 +153,7 @@ void MeanShift::shift_point(const Point &point, const std::vector<Point> &points
     //     total_weight += weight;
     // }
     
+
     // Original version
     for(int i=0; i<points.size(); i++){
         const Point& temp_point = points[i];

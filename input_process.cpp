@@ -658,7 +658,9 @@ int main(int argc, char *argv[]) {
 
     cout << "\n====================\n";
     cout << "Found " << clusters.size() <<" clusters\n";
+    fout << "Found " << clusters.size() <<" clusters\n";
     cout << "====================\n\n";
+    fout << "====================\n\n";
 
     cout << "flipflops' size : " << ffInstances.size() << "\n";
 
@@ -874,13 +876,14 @@ int main(int argc, char *argv[]) {
         cout << new_instance.inst_name << " " << new_instance.type_name << " " << new_instance.x << " " << new_instance.y << endl;
     }
 
-    placementBM.CreateByteMap();
-    //for (const auto& instance : ffInstances) {
-    for (const auto& instance : new_instances) {
-        cout << "cj (" << instance.x << "," << instance.y << ")" << endl;
-        placementBM.FFSetByteMap(instance, instance.x, instance.y);
-    }
-    placementBM.ShowByteMap();
+    // // Placement part (still doing)
+    // placementBM.CreateByteMap();
+    // //for (const auto& instance : ffInstances) {
+    // for (const auto& instance : new_instances) {
+    //     cout << "cj (" << instance.x << "," << instance.y << ")" << endl;
+    //     placementBM.FFSetByteMap(instance, instance.x, instance.y);
+    // }
+    // placementBM.ShowByteMap();
 
     fout.close();
 
