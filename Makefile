@@ -30,8 +30,8 @@ CXX = g++
 CXXFLAGS = -std=c++14 -O3 -g
 
 # Boost库的路径
-BOOST_INCLUDES = -I/home/willy/anaconda3/include/boost # 你們把這邊改成 /opt/homebrew/opt/boost/include
-BOOST_LIBS = -L/home/willy/anaconda3/lib -lboost_system -lboost_filesystem # 你們把這邊改成 /opt/homebrew/opt/boost/lib
+BOOST_INCLUDES = -I/home/willy/anaconda3/include/boost # 你們把這邊改成 -I/opt/homebrew/opt/boost/include
+BOOST_LIBS = -L/home/willy/anaconda3/lib -lboost_system -lboost_filesystem # 你們把這邊改成 -L/opt/homebrew/opt/boost/lib -lboost_system -lboost_filesystem
 
 # 定义目标二进制文件
 TARGET = input_process
