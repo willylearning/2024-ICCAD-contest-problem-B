@@ -4,10 +4,13 @@ how to compile :
 make
 
 how to run :
-./input_process inputs/sampleCase
-./input_process inputs/diycase
-./input_process inputs/testcase1_0614.txt
+./input_process inputs/sampleCase outputs/sampleCase_output.txt
+./input_process inputs/testcase1_0812.txt outputs/testcase1_0812_output.txt
+./input_process inputs/testcase2_0812.txt outputs/testcase2_0812_output.txt
 
+how to check connection :
+./sanity_20240801 inputs/testcase1_0812.txt outputs/testcase1_0812_output.txt
+./sanity_20240801 inputs/testcase2_0812.txt outputs/testcase2_0812_output.txt
 
 how to compile cpp_test :
 g++ -std=c++11 -O3 -g -c MeanShift.cpp -o MeanShift.o

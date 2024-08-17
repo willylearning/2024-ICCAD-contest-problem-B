@@ -1,4 +1,4 @@
-#pragma once 
+// #pragma once 
 
 #include <vector>
 
@@ -23,7 +23,7 @@ public:
 
     MeanShift() { set_kernel(NULL); }
     MeanShift(double (*_kernel_func)(double,double)) { set_kernel(kernel_func); }
-    std::vector<Point> meanshift(const std::vector<Point> & points, double kernel_bandwidth, std::vector<double> var_h = std::vector<double>(), double EPSILON = 100); // EPSILON small => more clusters
+    std::vector<Point> meanshift(const std::vector<Point> & points, double kernel_bandwidth, std::vector<double> var_h, double EPSILON); // EPSILON small => more clusters, 100 for testcase1, 0.001 for others
     std::vector<Cluster> cluster(const std::vector<Point> &, double);
     std::vector<double> variable_bandwidth(const std::vector<Point> &points, double kernel_bandwidth); // define variable bandwidth
     void legalization(const std::vector<Point> &, const std::vector<Point> &);
