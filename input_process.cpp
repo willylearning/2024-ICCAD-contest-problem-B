@@ -389,7 +389,11 @@ bool pmFFSearchPlacementMap(Instance& ffInstance){
         assert((ct < pm.bmCols) && "ct should be less than bmCols");
         assert((rt < pm.bmRows) && "rt should be less than bmRows");
 
+        // update target x, y
         cout << "-> " << ffInstance.type_name << " @(" << ct << "," << rt << ")" << endl;
+        ffInstance.x = pm.startX + pm.siteWidth * ct;
+        ffInstance.y = pm.startY + pm.siteHeight * rt;
+
         for (int r=rt; r< rt + sitesR; r++){
             for (int c=ct; c < ct + sitesC; c++){
                 // except lower-left index, instance can be outside PlacementMap
@@ -402,11 +406,14 @@ bool pmFFSearchPlacementMap(Instance& ffInstance){
     }
     else {
         cout << "!!NG Cannot Place FF" << endl;
+        assert( false && "!!NG Cannot Place FF");
         return false;
     }
 }
 
 void pmUpdatePlacementMap(int startR, int rowCnt) {
+    cout << "UpdatePlaceMap, startR=" << startR << ", rowCnt=" << rowCnt << endl;
+
     stPlacementMap pm;  // placement Map
     // PlacementRows <startX> <startY> <siteWidth> <siteHeight> <totalNumOfSites>
     pm.bmCols = placementRows[startR].totalNumOfSites;
@@ -434,7 +441,7 @@ void pmUpdatePlacementMap(int startR, int rowCnt) {
 }
 
 void pmCreatePlacementMap(void) {
-    cout << "CreatePlaceMap" << endl;
+    cout << "CreatePlaceMap:" << endl;
 
     int totalRows = placementRows.size();
     int bmCols = placementRows[0].totalNumOfSites;
@@ -453,8 +460,16 @@ void pmCreatePlacementMap(void) {
     }
     pmUpdatePlacementMap(startR, r-startR);
 
+    //ToDO, show all PlacementMaps parameters
+
     for (const auto& instance : gateInstances) {
         pmGateSetPlacementMap(instance);
+    }
+}
+
+void pmDumpPlacementMap(void) {
+    for (const auto& pm : placementMaps) {
+
     }
 }
 
@@ -853,14 +868,12 @@ int main(int argc, char *argv[]) {
     // assert(0);
 
     ofstream file("clustering_result.txt");
-    ofstream fout(argv[2]);
     vector<string> templines;
 
-    if(!fout || !file){
+    if(!file){
         perror("Couldn't write output");
         exit(0);
     }
-
 
     cout << "\n====================\n";
     cout << "Found " << clusters.size() <<" clusters\n";
@@ -1192,7 +1205,6 @@ int main(int argc, char *argv[]) {
     // cout << "new_instances.size() = " << new_instances.size() << endl;
 
     file.close();
-    // fout.close();
 
     // assert(0);
 
@@ -1201,8 +1213,13 @@ int main(int argc, char *argv[]) {
     for (auto& instance : new_instances) {
         pmFFSearchPlacementMap(instance);
     }
-    pmShowPlacementMap();
+    //pmShowPlacementMap();
 
+    ofstream fout(argv[2]);
+    if(!fout){
+        perror("Couldn't write output file");
+        exit(0);
+    }
 
     fout << "CellInst " << new_instances.size() << endl;
     for(const auto& new_instance : new_instances){

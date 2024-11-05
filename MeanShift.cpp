@@ -3,19 +3,19 @@
 #include <math.h>
 #include <algorithm>
 #include <float.h>
-#include <boost/geometry.hpp>
-#include <boost/geometry/index/rtree.hpp>
-#include <boost/geometry/geometries/point.hpp>
-#include <boost/geometry/geometries/box.hpp>
+// #include <boost/geometry.hpp>
+// #include <boost/geometry/index/rtree.hpp>
+// #include <boost/geometry/geometries/point.hpp>
+// #include <boost/geometry/geometries/box.hpp>
 #include "MeanShift.h"
 
 using namespace std;
 
-namespace bg = boost::geometry;
-namespace bgi = boost::geometry::index;
+// namespace bg = boost::geometry;
+// namespace bgi = boost::geometry::index;
 
-using BoostPoint = bg::model::point<double, 2, bg::cs::cartesian>; // 2維點
-using Value = std::pair<BoostPoint, size_t>;
+// using BoostPoint = bg::model::point<double, 2, bg::cs::cartesian>; // 2維點
+// using Value = std::pair<BoostPoint, size_t>;
 
 #define CLUSTER_EPSILON 0.5
 

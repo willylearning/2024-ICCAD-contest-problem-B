@@ -5,7 +5,7 @@ make
 
 how to run :
 ./input_process inputs/sampleCase outputs/sampleCase_output.txt
-./input_process inputs/testcase1_0812.txt outputs/testcase1_0812_output.txt
+./input_process inputs/testcase1_0812.txt outputs/testcase1_0812_output.txt | tee log.txt
 ./input_process inputs/testcase2_0812.txt outputs/testcase2_0812_output.txt
 
 how to check connection :
