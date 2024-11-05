@@ -64,6 +64,9 @@
         "mutex": "cpp",
         "ratio": "cpp",
         "variant": "cpp",
-        "set": "cpp"
+        "set": "cpp",
+        "functional": "cpp",
+        "iterator": "cpp",
+        "numeric": "cpp"
     }
 }

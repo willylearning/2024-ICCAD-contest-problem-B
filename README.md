@@ -4,10 +4,13 @@ how to compile :
 make
 
 how to run :
-./input_process inputs/sampleCase
-./input_process inputs/diycase
-./input_process inputs/testcase1_0614.txt
+./input_process inputs/sampleCase outputs/sampleCase_output.txt
+./input_process inputs/testcase1_0812.txt outputs/testcase1_0812_output.txt | tee log.txt
+./input_process inputs/testcase2_0812.txt outputs/testcase2_0812_output.txt
 
+how to check connection :
+./sanity_20240801 inputs/testcase1_0812.txt outputs/testcase1_0812_output.txt
+./sanity_20240801 inputs/testcase2_0812.txt outputs/testcase2_0812_output.txt
 
 how to compile cpp_test :
 g++ -std=c++11 -O3 -g -c MeanShift.cpp -o MeanShift.o
@@ -34,4 +37,4 @@ g++ -std=c++14 -I /opt/homebrew/opt/boost/include -L /opt/homebrew/opt/boost/lib
 g++ -std=c++14 -I (path)/include -L (path)/lib boost.cpp -o b -lboost_system -lboost_filesystem
 ./b
 
-willy's : g++ -std=c++14 -I /home/willy/anaconda3/include/boost -L /home/willy/anaconda3/lib/ boost.cpp -o a -lboost_system -lboost_filesystem
+willy's : g++ -std=c++14 -I /home/willy/anaconda3/include/boost -L /home/willy/anaconda3/lib boost.cpp -o a -lboost_system -lboost_filesystem

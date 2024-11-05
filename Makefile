@@ -1,37 +1,10 @@
-# CXX = g++
-# CXXFLAGS = -std=c++14 -O3 -g
-
-# # 定義目標二進制文件
-# TARGETS = input_process_original MeanShift
-
-# # 編譯所有目標
-# all: $(TARGETS)
-
-# # 編譯input_process目標
-# input_process: input_process_original.o
-# 	$(CXX) $(CXXFLAGS) -o $@ $^
-
-# # 編譯MeanShift目標
-# MeanShift: cpp_test_original.o MeanShift.o
-# 	$(CXX) $(CXXFLAGS) -o $@ $^
-
-# # 編譯.cpp文件為.o文件的規則
-# %.o: %.cpp
-# 	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-# # 清理生成的文件
-# clean:
-# 	rm -f $(TARGETS) *.o
-
-
-############################################ v2
-
 CXX = g++
 CXXFLAGS = -std=c++14 -O3 -g
+# CXXFLAGS = -std=c++11 -O3 -g
 
 # Boost库的路径
-BOOST_INCLUDES = -I/home/willy/anaconda3/include/boost # 你們把這邊改成 -I/opt/homebrew/opt/boost/include
-BOOST_LIBS = -L/home/willy/anaconda3/lib -lboost_system -lboost_filesystem # 你們把這邊改成 -L/opt/homebrew/opt/boost/lib -lboost_system -lboost_filesystem
+# BOOST_INCLUDES = -I/home/willy/anaconda3/include/boost # 你們把這邊改成 -I/opt/homebrew/opt/boost/include
+# BOOST_LIBS = -L/home/willy/anaconda3/lib -lboost_system -lboost_filesystem # 你們把這邊改成 -L/opt/homebrew/opt/boost/lib -lboost_system -lboost_filesystem
 
 # 定义目标二进制文件
 TARGET = input_process

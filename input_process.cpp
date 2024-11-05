@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <unordered_map>
 #include <set>
 #include <algorithm>
 #include <numeric>
@@ -15,8 +16,8 @@
 
 using namespace std;
 
-#define _CJDBG      1   // separate innstances into ffInstances and gateInstances
-#define _DBG_BMAP   1
+#define _CJDBG              1   // separate instances into ffInstances and gateInstances
+#define _DBG_PlacementMAP   0
 
 //------------------------------
 // Define and Struction
@@ -91,13 +92,13 @@ struct GatePower {
 };
 
 // FlipFlop Lib parameters: FlipFlop <bits> <flipFlopName> <flipFlopWidth> <flipFlopHeight> <pinCount>
-struct stFFValue { 
-  int bits;   // no use
-  int ffWidth;   
-  int ffHeight;  
-  int pinCount;  // no use
-  int siteC;  // convert ffWidth to site count
-  int siteR;  // convert ffHeight to site count  
+struct stFFValue {
+  int    bits;      // no use
+  double ffWidth;
+  double ffHeight;
+  int    pinCount;  // no use
+  int    sitesC;    // convert ffWidth to site width count
+  int    sitesR;    // convert ffHeight to site hieght count
 };
 
 // Gate values, Gate <gateName> <gateWidth> <gateHeight> <pinCount>
@@ -116,20 +117,22 @@ struct stGateValue {
     map<string, string> name_type_map, ex: name_type_map['C1'] = 'FF1'
     map<string, string> reg_map, ex: reg_map['C1'] = 'C5'
     map<string, int> clk_net_map, ex: clk_net_map['C1'] = 5 (which means that clk of C1 is in 5th net)
+    unordered_map<int, pair<double, string>> bits_minareaff_map
 */
 map<string, int>    type_bits_map;
 map<string, string> name_type_map;
 map<string, int> clk_net_map;
+unordered_map<int, pair<double, string>> bits_minareaff_map;
 
 // Data structures to store parsed information
-map<string, double> weights;
+unordered_map<string, double> weights;
 vector<Pin>         inputPins;
 vector<Pin>         outputPins;
 vector<FlipFlop>    flipFlops;
 vector<Gate>        gates;
 
 // Data structures for placement
-map<string, stFFValue>   kmFFLib;
+map<string, stFFValue>   kmFFLib;   //  ffname: bits, ffWidth, ffHeight, pinCount, sitesC, sitesR
 map<string, stGateValue> kmGateLib;
 
 vector<Instance>    ffInstances;
@@ -150,7 +153,6 @@ vector<Qpindelay>   qpindelays; // Change to vector
 // map< pair<double, double>, pair<string, string> > inst_map;
 
 pair<string, int>   instName;
-
 set<int>            possible_bits;
 int max_bit =       0;    // FlipFlops' max bit count
 
@@ -158,6 +160,31 @@ int cost_area = 0;
 double cost_power = 0;
 double cost_tns = 0;
 
+struct stPlacementMap { // Every placementMap is always rectangular
+    // PlacementRows <startX> <startY> <siteWidth> <siteHeight> <totalNumOfSites>
+    //uint8_t* byteMap;      // byteMap array for PlacementRows, 1-byte for a cell-site
+    std::vector<std::vector<uint8_t>> byteMap;
+
+    int bmRows;            // totalNumOfRows
+    int bmCols;            // totalNumOfSites
+    int startX, startY;    // lower-left (x,y) of PlacementMap
+    int siteWidth, siteHeight; //assume siteWidth/siteHeight are the same for all sites
+    int endX, endY;        // upper-right (x,y) of PlacementMap
+};
+
+vector<stPlacementMap>    placementMaps;
+
+//------------------------------
+// Function Declaration
+//------------------------------
+// PlacementMap functions
+void pmCreatePlacementMap(void);
+void pmShowPlacementMap(void);
+void pmGateSetPlacementMap(Instance cell);
+bool pmFFSearchPlacementMap(Instance cell, double x, double y);
+bool pmIsEmpty(int r0, int c0, int sitesR, int sitesC);
+
+int  SetNewInstPoint(Instance& new_instance);
 
 //------------------------------
 // Functions
@@ -174,175 +201,354 @@ pair<string, int> splitString(const string& str) {
 }
 
 bool CompareByBits(vector<double>& a, vector<double>& b, map<pair<double, double>, pair<string, string>> points_namebits_map) {
-    if(clk_net_map[points_namebits_map[make_pair(a[0], a[1])].first] != clk_net_map[points_namebits_map[make_pair(b[0], b[1])].first]){
+    if(clk_net_map[points_namebits_map[make_pair(a[0], a[1])].first] != clk_net_map[points_namebits_map[make_pair(b[0], b[1])].first]){ // belong to different clk
         return clk_net_map[points_namebits_map[make_pair(a[0], a[1])].first] > clk_net_map[points_namebits_map[make_pair(b[0], b[1])].first];
     }
     return type_bits_map[points_namebits_map[make_pair(a[0], a[1])].second] > type_bits_map[points_namebits_map[make_pair(b[0], b[1])].second]; // sort points by ff's bits in decreasing order
 }
 
-struct stPlacementBM {
-    // PlacementRows <startX> <startY> <siteWidth> <siteHeight> <totalNumOfSites>
-    //uint8_t* byteMap;      // byteMap array for PlacementRows, 1-byte for a cell-site
-    std::vector<std::vector<uint8_t>> byteMap;
 
-    int  bmRows, bmCols;
-    int  startX, startY;
-    int  siteWidth, siteHeight; //cjdbg, int or float?
-
-    void CreateByteMap(void);
-    void ShowByteMap(void);
-    bool GateSetByteMap(Instance cell);
-    bool FFSetByteMap(Instance cell, double x, double y);
-    bool FindSubarray(const std::vector<std::vector<uint8_t>>& A, int n, int m);
-    //void DeleteByteMap(void);
-} placementBM;
-
-bool stPlacementBM::GateSetByteMap(Instance gate){
+// In the Placement(byte) Map, set the Gate Instance according to its x/y
+void  pmGateSetPlacementMap(Instance gate){
 
     stGateValue gateValue = kmGateLib[gate.type_name];
+    double gateEndX = gate.x + gateValue.gateWidth;     // the coordinate of Gate's upper-right corner
+    double gateEndY = gate.y + gateValue.gateHeight;
+    cout << "pmGate: " << gate.type_name << "@(" << gate.x << ", " << gate.y << "), " << gateValue.gateWidth << " x " << gateValue.gateHeight << endl;
 
-    // (c0,r0): indices of lower-left corner, (c1,r1): indices of upper-right corner
-    // e.g: (x,y)=(10,10), (siteW,siteh)=(2,10), (gateW,gateH)=(5,10)
-    int c0 = floor((gate.x - startX) / siteWidth);
-    int r0 = floor((gate.y - startY) / siteHeight);
-    int c1 = ceil((gate.x + gateValue.gateWidth - startX) / siteWidth) - 1;
-    int r1 = ceil((gate.y + gateValue.gateHeight - startY) / siteHeight) - 1;
-#if _DBG_BMAP
-    cout << "GateSetBitMap: " << gate.type_name << ", @(" << gate.x << ", " << gate.y << ")";
+    int idx;
+    for(int idx=0; idx<placementMaps.size(); idx++){
+        stPlacementMap &pm = placementMaps[idx];
+
+        if ((gateEndX < pm.startX || pm.endX < gate.x)
+         || (gateEndY < pm.startY || pm.endY < gate.y)) {
+            // gate and placementMap are not overlapped
+            continue;
+        }
+
+        // (c0,r0): indices of lower-left corner, (c1,r1): indices of upper-right corner
+        // e.g: (x,y)=(10,10), (siteW,siteh)=(2,10), (gateW,gateH)=(5,10)
+        int c0, r0, c1, r1;
+        if (gate.x > pm.startX)
+            c0 = floor((gate.x - pm.startX) / pm.siteWidth);
+        else
+            c0 = 0;
+
+        if (gate.y > pm.startY)
+            r0 = floor((gate.y - pm.startY) / pm.siteHeight);
+        else
+            r0 = 0;
+
+        c1 = ceil((gateEndX - pm.startX) / pm.siteWidth) - 1;
+        if (c1 >= pm.bmCols)
+            c1 = pm.bmCols - 1;
+
+        r1 = ceil((gateEndY - pm.startY) / pm.siteHeight) - 1;
+        if (r1 >= pm.bmRows)
+            r1 = pm.bmRows - 1;
+
+#if _DBG_PlacementMAP
+        cout << " set ByteMap: " << gate.type_name << "@(" << gate.x << ", " << gate.y << ") => (" << c0 << "," << r0 << ")" << endl;
 #endif
-    for (int r=r0; r<=r1; r++){
-        for (int c=c0; c<=c1; c++){
-            if (byteMap[r][c]) { // not 0
-#if _DBG_BMAP
-                cout << "NG!!" << endl;
+        for (int r=r0; r<=r1; r++){
+            for (int c=c0; c<=c1; c++){
+                pm.byteMap[r][c] = 'G';
+            }
+        }
+
+        return;
+
+    }
+
+}
+
+bool pmIsEmpty(int idx, int c0, int r0, int sitesC, int sitesR){
+    stPlacementMap &pm = placementMaps[idx];
+
+    if ((c0+sitesC) > pm.bmCols)
+        sitesC = pm.bmCols - c0;
+    if ((r0+sitesR) > pm.bmRows)
+        sitesR = pm.bmRows - r0;
+
+    for (int r=r0; r< r0 + sitesR; r++){
+        for (int c=c0; c < c0 + sitesC; c++){
+            if (pm.byteMap[r][c]) { // not 0
+#if _DBG_PlacementMAP
+                cout << "!!NG (" << c0 << "," << r0 << ")" << endl;
 #endif
                 return false;
             }
         }
     }
-
-    for (int r=r0; r<=r1; r++){
-        for (int c=c0; c<=c1; c++){
-            byteMap[r][c] = 1;
-        }
-    }
-#if _DBG_BMAP
-    cout << endl;
+#if _DBG_PlacementMAP
+    cout << "Empty (" << c0 << "," << r0 << ")" << endl;
 #endif
     return true;
 }
 
-bool stPlacementBM::FFSetByteMap(Instance newFlipFlop, double x, double y){
+// In Placement(byte) Map, Search the available spaces from (x,y) and set FF Instance
+bool pmFFSearchPlacementMap(Instance& ffInstance){
+    int idx = SetNewInstPoint(ffInstance);
 
-    stFFValue ffValue = kmFFLib[newFlipFlop.type_name];
+    stPlacementMap &pm = placementMaps[idx];
+    stFFValue ffValue = kmFFLib[ffInstance.type_name];
 
     // (c0,r0): indices of lower-left corner, (c1,r1): indices of upper-right corner
     // e.g: (x,y)=(10,10), (siteW,siteh)=(2,10), (gateW,gateH)=(5,10)
-    int c0 = floor((x - startX) / siteWidth);
-    int r0 = floor((y - startY) / siteHeight);
-    int c1 = ceil((x + ffValue.ffWidth - startX) / siteWidth) - 1;
-    int r1 = ceil((y + ffValue.ffHeight - startY) / siteHeight) - 1;
-#if _DBG_BMAP
-    cout << "FFSetBitMap: " << newFlipFlop.type_name << ", @(" << x << ", " << y << ")";
+    uint8_t bits = (uint8_t)ffValue.bits + '0';
+    int sitesC = ceil(ffValue.ffWidth / pm.siteWidth);
+    int sitesR = ceil(ffValue.ffHeight / pm.siteHeight);
+    int c0 = floor((ffInstance.x - pm.startX) / pm.siteWidth);       // initial search point (c0,r0)
+    int r0 = floor((ffInstance.y - pm.startY) / pm.siteHeight);
+    int ct = c0;        // target search point (ct,rt)
+    int rt = r0;
+
+    cout << "pmSrch: " << ffInstance.inst_name << " " << ffInstance.type_name << " (" << ffInstance.x << "," << ffInstance.y << ")" ;
+    cout << " sitesC,sitesR=" << sitesC << "," << sitesR << endl;
+
+    bool bEmpty = pmIsEmpty(idx, ct, rt, sitesC, sitesR);
+    if (!bEmpty) {
+        // Search in rectangular from lower-left (^,>,v,<)
+        int iStart, iEnd;
+        int dmax = max(max(c0, pm.bmCols-c0-1), max(r0, pm.bmRows-r0-1));
+#if _DBG_PlacementMAP
+        cout << "dmax=" << dmax << endl;
 #endif
-    for (int r=r0; r<=r1; r++){
-        for (int c=c0; c<=c1; c++){
-            if (byteMap[r][c]) { // not 0
-#if _DBG_BMAP
-                cout << "NG!!" << endl;
+        for (int d=1; !bEmpty && d<=dmax ; d++) {
+            //cout << "d=" << d << endl;  //cjdbg
+
+            //s1: ^, from left-lower to (left-upper - 1)
+            if ((c0 - d) >= 0) {
+#if _DBG_PlacementMAP
+                cout << "^" << endl;
 #endif
-                return false;
+                ct = c0 - d;
+                (r0 > d) ? iStart = r0 - d : iStart = 0;
+                ((r0 + d - 1) < pm.bmRows) ? iEnd = r0 + d - 1 : iEnd = pm.bmRows - 1;
+                for (rt = iStart; rt <= iEnd; rt++) {
+                    if (pmIsEmpty(idx, ct, rt, sitesC, sitesR)){
+                        bEmpty = true;
+                        break;
+                    }
+                }
+            }
+
+            //s2: >, from left-upper to (right-upper - 1)
+            if (!bEmpty && ((r0 + d) < pm.bmRows)) {
+#if _DBG_PlacementMAP
+                cout << ">" << endl;
+#endif
+                rt = r0 + d;
+                (c0 > d) ? iStart = c0 - d : iStart = 0;
+                ((c0 + d - 1) < pm.bmCols) ? iEnd = c0 + d - 1 : iEnd = pm.bmCols - 1;
+                for (ct = iStart; ct <= iEnd; ct++) {
+                    if (pmIsEmpty(idx, ct, rt, sitesC, sitesR)){
+                        bEmpty = true;
+                        break;
+                    }
+                }
+            }
+
+            //s3: v, from right-upper to (right-lower - 1)
+            if (!bEmpty && ((c0 + d) < pm.bmCols)) {
+#if _DBG_PlacementMAP
+                cout << "v" << endl;
+#endif
+                ct = c0 + d;
+                ((r0 + d) < pm.bmRows) ? iStart = r0 + d : iStart = pm.bmRows - 1;
+                (r0 > d - 1) ? iEnd = r0 - d + 1 : iEnd = 0;
+                for (rt = iStart; rt >= iEnd; rt--) {
+                    if (pmIsEmpty(idx, ct, rt, sitesC, sitesR)){
+                        bEmpty = true;
+                        break;
+                    }
+                }
+            }
+
+            //s4: <, from right-lower to (left-lower - 1)
+            if (!bEmpty && ((r0 - d) >= 0)) {
+#if _DBG_PlacementMAP
+                cout << "<" << endl;
+#endif
+                rt = r0 - d;
+                ((c0 + d) < pm.bmCols) ? iStart = c0 + d : iStart = pm.bmCols - 1;
+                (c0 > d - 1) ? iEnd = c0 - d + 1 : iEnd = 0;
+                for (ct = iStart; ct >= iEnd; ct--) {
+                    if (pmIsEmpty(idx, ct, rt, sitesC, sitesR)){
+                        bEmpty = true;
+                        break;
+                    }
+                }
             }
         }
     }
 
-    for (int r=r0; r<=r1; r++){
-        for (int c=c0; c<=c1; c++){
-            byteMap[r][c] = 2;
+    // Set Placement Map
+    if (bEmpty) {
+        // Instance lower-left index should be within PlacementMap
+        assert((ct < pm.bmCols) && "ct should be less than bmCols");
+        assert((rt < pm.bmRows) && "rt should be less than bmRows");
+
+        // update target x, y
+        cout << "-> " << ffInstance.type_name << " @(" << ct << "," << rt << ")" << endl;
+        ffInstance.x = pm.startX + pm.siteWidth * ct;
+        ffInstance.y = pm.startY + pm.siteHeight * rt;
+
+        for (int r=rt; r< rt + sitesR; r++){
+            for (int c=ct; c < ct + sitesC; c++){
+                // except lower-left index, instance can be outside PlacementMap
+                if ((c<pm.bmCols) && (r<pm.bmRows)) {
+                    pm.byteMap[r][c] = bits;
+                }
+            }
         }
+        return true;
     }
-#if _DBG_BMAP
-    cout << endl;
-#endif
-    return true;
+    else {
+        cout << "!!NG Cannot Place FF" << endl;
+        assert( false && "!!NG Cannot Place FF");
+        return false;
+    }
 }
 
-void stPlacementBM::CreateByteMap(void) {
-    cout << "CreateByteMap" << endl;
+void pmUpdatePlacementMap(int startR, int rowCnt) {
+    cout << "UpdatePlaceMap, startR=" << startR << ", rowCnt=" << rowCnt << endl;
 
-    bmRows = placementRows.size();
-    bmCols = placementRows[0].totalNumOfSites;
-             //placementRows[0].totalNumOfSites;% (sizeof(int)*8) +
-             //placementRows[0].totalNumOfSites / (sizeof(int)*8);    // (a % b != 0) + (a / b);
-
+    stPlacementMap pm;  // placement Map
     // PlacementRows <startX> <startY> <siteWidth> <siteHeight> <totalNumOfSites>
-    startX = placementRows[0].startX;
-    startY = placementRows[0].startY;
-    siteWidth = placementRows[0].siteWidth;
-    siteHeight = placementRows[0].siteHeight;
-    cout << "placementRow: " << startX << ", " << startY << ", "
-         << siteWidth << ", " << siteHeight << ", " << placementRows[0].totalNumOfSites << endl;
-    cout << "[r, c] = " << bmRows << ',' << bmCols << endl;
+    pm.bmCols = placementRows[startR].totalNumOfSites;
+    pm.bmRows = rowCnt;
+    pm.startX = placementRows[startR].startX;
+    pm.startY = placementRows[startR].startY;
+    pm.siteWidth = placementRows[startR].siteWidth;
+    pm.siteHeight = placementRows[startR].siteHeight;
+    pm.endX = pm.startX + pm.siteWidth*pm.bmCols;
+    pm.endY = pm.startY + pm.siteHeight*pm.bmRows;
+
+    cout << "placementMap: (" << pm.startX << "," << pm.startY << "), (" << pm.endX << "," << pm.endY << ") "
+        << pm.siteWidth << ", " << pm.siteHeight << ", "
+        << pm.bmCols << "cols x " << pm.bmRows << "rows" << endl;
 
     // Allocate memory for rows
-    byteMap.resize(bmRows);
+    pm.byteMap.resize(pm.bmRows);
 
     // Allocate memory for each column within each row
-    for (int i = 0; i < bmRows; ++i) {
-        byteMap[i].resize(bmCols, 0); // Initialize with 0 (unoccupied)
+    for (int i = 0; i < pm.bmRows; ++i) {
+        pm.byteMap[i].resize(pm.bmCols, 0); // Initialize with 0 (unoccupied)
     }
-    
+
+    placementMaps.push_back(pm);
+}
+
+void pmCreatePlacementMap(void) {
+    cout << "CreatePlaceMap:" << endl;
+
+    int totalRows = placementRows.size();
+    int bmCols = placementRows[0].totalNumOfSites;
+    int startR = 0, r;
+
+    // check if all placementRows are in a group
+    for (r=1; r < totalRows; r++) {
+        if ((placementRows[r-1].startX != placementRows[r].startX)
+          ||(placementRows[r-1].totalNumOfSites != placementRows[r].totalNumOfSites)
+          ||((placementRows[r-1].startY + placementRows[r-1].siteHeight) != placementRows[r].startY))
+        {
+            pmUpdatePlacementMap(startR, r-startR);
+            startR = r;
+            cout << "Create another Placement Map..." << endl;
+        }
+    }
+    pmUpdatePlacementMap(startR, r-startR);
+
+    //ToDO, show all PlacementMaps parameters
+
     for (const auto& instance : gateInstances) {
-        GateSetByteMap(instance);
+        pmGateSetPlacementMap(instance);
     }
 }
 
-void stPlacementBM::ShowByteMap(void)
+void pmDumpPlacementMap(void) {
+    for (const auto& pm : placementMaps) {
+
+    }
+}
+
+void pmShowPlacementMap(void)
 {
-    for (int r=0; r<bmRows; r++){
-        cout << "r" << r;
-        for (int c=0; c<bmCols; c++) {
-            if (byteMap[r][c]==1)
-                cout << 'G';
-            else if (byteMap[r][c]==2)
-                cout << 'F';
-            else
-                cout << '.';
+    for (const auto& pm : placementMaps)
+    {
+        for (int r=pm.bmRows-1; r>=0; r--){
+            cout << "r" << r << " ";
+            for (int c=0; c<pm.bmCols; c++) {
+                if (pm.byteMap[r][c]) // not 0
+                    cout << pm.byteMap[r][c];
+                else
+                    cout << '.';
+            }
+            cout << endl;
         }
-        cout << endl;
     }
 }
 
-bool stPlacementBM::FindSubarray(const std::vector<std::vector<uint8_t>>& A, int n, int m)
-{
-  int rows = A.size();
-  int cols = A[0].size();
-
-  for (int i = 0; i < rows - n + 1; ++i) {
-    for (int j = 0; j < cols - m + 1; ++j) {
-      bool isValid = true;
-      for (int r = i; r < i + n; ++r) {
-        for (int c = j; c < j + m; ++c) {
-          if (A[r][c]) {
-            isValid = false;
-            break;
-          }
+int SetNewInstPoint(Instance& new_instance){
+    vector<vector<double>> possible_points;
+    for(auto pm : placementMaps){
+        // cout << "original x, y = " << new_instance.x << " " << new_instance.y << endl;
+        vector<double> possible_point;
+        for(int i=0; i<pm.bmCols; i++){
+            if(new_instance.x <= pm.startX){
+                possible_point.push_back(pm.startX);
+                break;
+            }else if(new_instance.x >= pm.startX + pm.siteWidth*(pm.bmCols-1)){
+                possible_point.push_back(pm.startX + pm.siteWidth*(pm.bmCols-1));
+                break;
+            }else if(new_instance.x >= pm.startX + pm.siteWidth*(i) && new_instance.x < pm.startX + pm.siteWidth*(i+1)){
+                double a = new_instance.x - (pm.startX + pm.siteWidth*(i));
+                double b = (pm.startX + pm.siteWidth*(i+1)) - new_instance.x;
+                if(a > b){
+                    possible_point.push_back(pm.startX + pm.siteWidth*(i+1));
+                }else{
+                    possible_point.push_back(pm.startX + pm.siteWidth*(i));
+                }
+                break;
+            }
         }
-        if (!isValid) {
-          break;
+        for(int j=0; j<pm.bmCols; j++){
+            if(new_instance.y <= pm.startY){
+                possible_point.push_back(pm.startY);
+                break;
+            }else if(new_instance.y >= pm.startY + pm.siteHeight*(pm.bmRows-1)){
+                possible_point.push_back(pm.startY + pm.siteHeight*(pm.bmRows-1));
+                break;
+            }else if(new_instance.y >= pm.startY + pm.siteHeight*(j) && new_instance.y < pm.startY + pm.siteHeight*(j+1)){
+                double a = new_instance.y - (pm.startY + pm.siteHeight*(j));
+                double b = (pm.startY + pm.siteHeight*(j+1)) - new_instance.y;
+                // cout << "a = " << a << " b = " << b << endl;
+                if(a > b){
+                    possible_point.push_back(pm.startY + pm.siteHeight*(j+1));
+                }else{
+                    possible_point.push_back(pm.startY + pm.siteHeight*(j));
+                }
+                break;
+            }
         }
-      }
-      if (isValid) {
-        //ToDO: fill up array and return (r,c)
-        return true;
-      }
+        // cout << "after moving x, y = " << new_instances[k].x << " " << new_instances[k].y << endl;
+        possible_points.push_back(possible_point);
     }
-  }
 
-  return false;
+    // compute the minimum distance between new_instance and every placementMap
+    auto min_point = min_element(possible_points.begin(), possible_points.end(), [&new_instance](const vector<double>& a, const vector<double>& b) {
+        return (pow(a[0] - new_instance.x, 2) + pow(a[1] - new_instance.y, 2)) < (pow(b[0] - new_instance.x, 2) + pow(b[1] - new_instance.y, 2));
+    });
+
+    // replace new_instance.x and new_instance.y with its closest point on the corresponding placementMaps
+    new_instance.x = (*min_point)[0];
+    new_instance.y = (*min_point)[1];
+
+    // return the index of the corresponding placementMaps
+    int idx = distance(possible_points.begin(), min_point);
+    return idx;
 }
-
-
 
 // 3.1 Format of Input Data
 void InputParsing(char *fname)
@@ -381,6 +587,14 @@ void InputParsing(char *fname)
 
             FlipFlop flipFlop;
             iss >> flipFlop.bits >> flipFlop.name >> flipFlop.width >> flipFlop.height >> flipFlop.pinCount;
+
+            // memorize the flipflop with the minimum area
+            double area = flipFlop.width*flipFlop.height;
+            if(bits_minareaff_map.find(flipFlop.bits) == bits_minareaff_map.end() || area < bits_minareaff_map[flipFlop.bits].first){
+                bits_minareaff_map[flipFlop.bits].first = area;
+                bits_minareaff_map[flipFlop.bits].second = flipFlop.name;
+            }
+
             // fill flipFlop.bits in the set "possible_bits" in increasing order
             possible_bits.insert(flipFlop.bits);
             // fill flipFlop.bits in type_bits_map, ex: type_bits_map['FF1'] = 1
@@ -436,7 +650,7 @@ void InputParsing(char *fname)
         else if (key == "NumInstances") { // NumInstances <instanceCount>
             int instanceCount;
             iss >> instanceCount;
-            
+
 
             for (int i=0; i<instanceCount; i++) { // Inst <instName> <libCellName> <x> <y>
                 getline(file, line);      //e.g: Inst C1 FF1 20.0 0.0
@@ -510,9 +724,14 @@ void InputParsing(char *fname)
         }
     }
 
-    // for(std::map<string, int>::iterator it = clk_net_map.begin(); it != clk_net_map.end(); it++){
-    //     std::cout << "id: " << (*it).first << ", name: " << (*it).second << "\n";
+    // for(map<string, int>::iterator it = clk_net_map.begin(); it != clk_net_map.end(); it++){
+    //     cout << "id: " << (*it).first << ", name: " << (*it).second << "\n";
     // }
+
+    for (const auto& entry : bits_minareaff_map) {
+        std::cout << "Key: " << entry.first << ", Value: (" << entry.second.first << ", " << entry.second.second << ")" << std::endl;
+    }
+
 
     file.close();
 }
@@ -541,19 +760,19 @@ void DisplayParsing(void) {
     cout << "\nFlipflop:" << endl;
     for (const auto& flipflop : flipFlops) {
         cout << "bits: " << flipflop.bits << ", name: " << flipflop.name << ", width: " << flipflop.width << ", height: " << flipflop.height << endl;
-#if 0        
+#if 0
         cout << "Pins:" << endl;
         for (const auto& pin : flipflop.pins) {
             cout << "Name: " << pin.name << ", X: " << pin.x << ", Y: " << pin.y << endl;
         }
-#endif        
+#endif
     }
 
     cout << "\nGate:" << endl;
     for (const auto& gate : gates) {
         cout << ", name: " << gate.name << ", width: " << gate.width << ", height: " << gate.height << endl;
 
-#if 0        
+#if 0
         cout << "Pins:" << endl;
         for (const auto& pin : gate.pins) {
             cout << "Name: " << pin.name << ", X: " << pin.x << ", Y: " << pin.y << endl;
@@ -570,7 +789,7 @@ void DisplayParsing(void) {
     for (const auto& instance : gateInstances) {
         cout << "Name: " << instance.inst_name << ", FlipFlop Name: " << instance.type_name << ", X: " << instance.x << ", Y: " << instance.y << endl;
     }
-  
+
 #if 0
     cout << "\nNets:" << endl;
     for (const auto& net : nets) {
@@ -643,22 +862,22 @@ int main(int argc, char *argv[]) {
 
     // Cluster
     MeanShift *msp = new MeanShift();
-    double kernel_bandwidth = 10;
-    
+    double kernel_bandwidth = 1000;
 
     vector<Cluster> clusters = msp->cluster(points, kernel_bandwidth); // generate clustering result
     // assert(0);
 
-    ofstream fout("result.csv");
-    if(!fout){
-        perror("Couldn't write result.csv");
+    ofstream file("clustering_result.txt");
+    vector<string> templines;
+
+    if(!file){
+        perror("Couldn't write output");
         exit(0);
     }
-    
 
     cout << "\n====================\n";
     cout << "Found " << clusters.size() <<" clusters\n";
-    fout << "Found " << clusters.size() <<" clusters\n";
+    file << "Found " << clusters.size() <<" clusters\n";
     cout << "====================\n\n";
     fout << "====================\n\n";
 
@@ -679,14 +898,14 @@ int main(int argc, char *argv[]) {
     //     }
     //     cout << endl;
     // }
-    
-    int new_idx = ffInstances.size() + 1;   // should include gateInstance too
+
+    int new_idx = ffInstances.size() + gateInstances.size() + 1;   // should include gateInstance too
 
     vector<Instance> new_instances;
 
     for(int cluster = 0; cluster < clusters.size(); cluster++){
         cout << "Cluster " << cluster << ":\n";
-        fout << "Cluster " << cluster << ":\n";
+        file << "Cluster " << cluster << ":\n";
 
         // banking process
         // construct a map between original_points[point] and its reg_type
@@ -708,14 +927,23 @@ int main(int argc, char *argv[]) {
             if(b == max_bit){ // it's already a max-bit flipflop
                 reg_map[str] = instName.first + to_string(new_idx);
                 new_idx++;
-                
+
+                // output mapping list
+                for(auto& flipFlop : flipFlops){
+                    if(name_type_map[str] == flipFlop.name){
+                        for(auto& pin : flipFlop.pins){
+                            templines.push_back(str + "/" + pin.name + " map " +  reg_map[str] + "/" + pin.name);
+                        }
+                    }
+                }
+
                 // Banking : use the max-bit flipflop with the minimum area
                 Instance new_instance;
                 new_instance.inst_name = reg_map[str];
                 // Still need to decide which FF is the best for doing banking
-                for(auto& flipFlop : flipFlops){
-                    if(flipFlop.bits == max_bit){
-                        new_instance.type_name = flipFlop.name;
+                for(auto& instance : ffInstances){
+                    if(str == instance.inst_name){
+                        new_instance.type_name = instance.type_name;
                     }
                 }
                 new_instance.x = clusters[cluster].original_points[point][0];
@@ -726,8 +954,24 @@ int main(int argc, char *argv[]) {
                 if(bitcnt + b == max_bit){ // can bank into a max-bit flipflop
                     // cout << "2" << endl;
                     strvec.push_back(str);
+
+                    // output mapping list
+                    int qpin_count = 0;
                     for(int i=0; i<strvec.size(); i++){
                         reg_map[strvec[i]] = instName.first + to_string(new_idx);
+                        if(type_bits_map[name_type_map[strvec[i]]] == 1){
+                            templines.push_back(strvec[i] + "/D map " + reg_map[strvec[i]] + "/D" + to_string(qpin_count));
+                            templines.push_back(strvec[i] + "/Q map " + reg_map[strvec[i]] + "/Q" + to_string(qpin_count));
+                            qpin_count++;
+                            templines.push_back(strvec[i] + "/CLK map " +  reg_map[strvec[i]] + "/CLK");
+                        }else{
+                            for(int j=0; j<type_bits_map[name_type_map[strvec[i]]]; j++){
+                                templines.push_back(strvec[i] + "/D" + to_string(j) + " map " +  reg_map[strvec[i]] + "/D" + to_string(qpin_count));
+                                templines.push_back(strvec[i] + "/Q" + to_string(j) + " map " +  reg_map[strvec[i]] + "/Q" + to_string(qpin_count));
+                                qpin_count++;
+                            }
+                            templines.push_back(strvec[i] + "/CLK map " +  reg_map[strvec[i]] + "/CLK");
+                        }
                     }
                     new_idx++;
 
@@ -740,14 +984,17 @@ int main(int argc, char *argv[]) {
                     // Banking : use the max-bit flipflop with the minimum area
                     Instance new_instance;
                     new_instance.inst_name = reg_map[str];
-                    // Still need to decide which FF is the best for doing banking
-                    for(auto& flipFlop : flipFlops){
-                        if(flipFlop.bits == max_bit){
-                            new_instance.type_name = flipFlop.name;
-                        }
-                    }
+
+                    // // Still need to determine which FF is the best for doing banking
+                    // for(auto& flipFlop : flipFlops){
+                    //     if(flipFlop.bits == max_bit){
+                    //         new_instance.type_name = flipFlop.name;
+                    //     }
+                    // }
+                    new_instance.type_name = bits_minareaff_map[max_bit].second;
                     new_instance.x = x_avg;
                     new_instance.y = y_avg;
+
                     // push new_instance into the vector new_instances
                     new_instances.push_back(new_instance);
 
@@ -772,15 +1019,32 @@ int main(int argc, char *argv[]) {
 
                     vector<double> x_vec_last;
                     vector<double> y_vec_last;
-                    
+
                     int tmpcnt = 0;
+                    int qpin_count = 0;
                     for(int i=0; i<strvec.size(); i++){
                         for(int pb : possible_bits_vec){
                             if(bitcnt >= pb){
                                 tmpcnt += type_bits_map[name_type_map[strvec[i]]];
-                                // cout << "tmpcnt is " << tmpcnt << endl; 
+
                                 if(tmpcnt < pb){
                                     reg_map[strvec[i]] = instName.first + to_string(new_idx);
+
+                                    // output mapping list
+                                    if(type_bits_map[name_type_map[strvec[i]]] == 1){
+                                        templines.push_back(strvec[i] + "/D map " + reg_map[strvec[i]] + "/D" + to_string(qpin_count));
+                                        templines.push_back(strvec[i] + "/Q map " + reg_map[strvec[i]] + "/Q" + to_string(qpin_count));
+                                        qpin_count++;
+                                        templines.push_back(strvec[i] + "/CLK map " + reg_map[strvec[i]] + "/CLK");
+                                    }else{
+                                        for(int j=0; j<type_bits_map[name_type_map[strvec[i]]]; j++){
+                                            templines.push_back(strvec[i] + "/D" + to_string(j) + " map " + reg_map[strvec[i]] + "/D" + to_string(qpin_count));
+                                            templines.push_back(strvec[i] + "/Q" + to_string(j) + " map " + reg_map[strvec[i]] + "/Q" + to_string(qpin_count));
+                                            qpin_count++;
+                                        }
+                                        templines.push_back(strvec[i] + "/CLK map " +  reg_map[strvec[i]] + "/CLK");
+                                    }
+
                                     x_vec_last.push_back(x_vec[i]);
                                     y_vec_last.push_back(y_vec[i]);
                                     // for(auto x : x_vec_last){
@@ -789,6 +1053,27 @@ int main(int argc, char *argv[]) {
                                     break;
                                 }else if(tmpcnt == pb){
                                     reg_map[strvec[i]] = instName.first + to_string(new_idx);
+
+                                    // output mapping list
+                                    if(type_bits_map[name_type_map[strvec[i]]] == 1 && pb == 1){
+                                        templines.push_back(strvec[i] + "/D map " + reg_map[strvec[i]] + "/D");
+                                        templines.push_back(strvec[i] + "/Q map " + reg_map[strvec[i]] + "/Q");
+                                        templines.push_back(strvec[i] + "/CLK map " + reg_map[strvec[i]] + "/CLK");
+                                    }else if(type_bits_map[name_type_map[strvec[i]]] == 1){
+                                        templines.push_back(strvec[i] + "/D map " + reg_map[strvec[i]] + "/D" + to_string(qpin_count));
+                                        templines.push_back(strvec[i] + "/Q map " + reg_map[strvec[i]] + "/Q" + to_string(qpin_count));
+                                        qpin_count++;
+                                        templines.push_back(strvec[i] + "/CLK map " + reg_map[strvec[i]] + "/CLK");
+                                    }else{
+                                        for(int j=0; j<type_bits_map[name_type_map[strvec[i]]]; j++){
+                                            templines.push_back(strvec[i] + "/D" + to_string(j) + " map " + reg_map[strvec[i]] + "/D" + to_string(qpin_count));
+                                            templines.push_back(strvec[i] + "/Q" + to_string(j) + " map " + reg_map[strvec[i]] + "/Q" + to_string(qpin_count));
+                                            qpin_count++;
+                                        }
+                                        templines.push_back(strvec[i] + "/CLK map " + reg_map[strvec[i]] + "/CLK");
+                                    }
+                                    qpin_count = 0;
+
                                     x_vec_last.push_back(x_vec[i]);
                                     y_vec_last.push_back(y_vec[i]);
                                     double x_avg = std::accumulate(x_vec_last.begin(), x_vec_last.end(), 0.0) / x_vec_last.size();
@@ -797,18 +1082,21 @@ int main(int argc, char *argv[]) {
                                     //     cout << x << endl;
                                     // }
                                     // cout << x_vec[i] << endl;
-                                    
-                                    // new_instance forms
+
+                                    // build new_instance
                                     Instance new_instance;
                                     new_instance.inst_name = reg_map[strvec[i]];
-                                    // Still need to decide which FF is the best for doing banking
-                                    for(auto& flipFlop : flipFlops){
-                                        if(flipFlop.bits == pb){
-                                            new_instance.type_name = flipFlop.name;
-                                        }
-                                    }
+
+                                    // // Still need to determine which FF is the best for doing banking
+                                    // for(auto& flipFlop : flipFlops){
+                                    //     if(flipFlop.bits == pb){
+                                    //         new_instance.type_name = flipFlop.name;
+                                    //     }
+                                    // }
+                                    new_instance.type_name = bits_minareaff_map[pb].second;
                                     new_instance.x = x_avg;
                                     new_instance.y = y_avg;
+
                                     // push new_instance into the vector new_instances
                                     new_instances.push_back(new_instance);
 
@@ -846,23 +1134,17 @@ int main(int argc, char *argv[]) {
 
                 }
             }
-            cout << str << " " << b << "bits " << clusters[cluster].original_points[point][0] << " " << clusters[cluster].original_points[point][1] << " ";
-            fout << str << " " << b << "bits " << clusters[cluster].original_points[point][0] << " " << clusters[cluster].original_points[point][1] << " ";
-
-            cout << "-> ";
-            fout << "-> ";
-
-            cout << reg_map[str] << " ";
-            fout << reg_map[str] << " ";
+            cout << str << " " << b << "bits " << clusters[cluster].original_points[point][0] << " " << clusters[cluster].original_points[point][1]
+                << " -> " << reg_map[str] << endl;
+            file << str << " " << b << "bits " << clusters[cluster].original_points[point][0] << " " << clusters[cluster].original_points[point][1]
+                << " -> " << reg_map[str] << endl;
 
             // for(int dim = 0; dim < clusters[cluster].shifted_points[point].size(); dim++){
             //     cout << clusters[cluster].shifted_points[point][dim] << " ";
-            //     fout << clusters[cluster].shifted_points[point][dim] << " ";
+            //     file << clusters[cluster].shifted_points[point][dim] << " ";
             // }
-            cout << "\n";
-            fout << "\n";
         }
-        cout << "\n";
+        cout << endl;
     }
 
     for(int cluster = 0; cluster < clusters.size(); cluster++){
@@ -872,18 +1154,82 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    for(auto new_instance : new_instances){
-        cout << new_instance.inst_name << " " << new_instance.type_name << " " << new_instance.x << " " << new_instance.y << endl;
+    for(const auto& new_instance : new_instances){
+        cout << "before moving : " << new_instance.inst_name << " " << new_instance.type_name << " " << new_instance.x << " " << new_instance.y << endl;
     }
 
-    // // Placement part (still doing)
-    // placementBM.CreateByteMap();
-    // //for (const auto& instance : ffInstances) {
-    // for (const auto& instance : new_instances) {
-    //     cout << "cj (" << instance.x << "," << instance.y << ")" << endl;
-    //     placementBM.FFSetByteMap(instance, instance.x, instance.y);
+    // Move (x, y) in new_instance to its closest point(the lower left corner of a placement site) of PlacementRows
+    // for(int k=0; k<new_instances.size(); k++){
+    //     // cout << "original x, y = " << new_instances[k].x << " " << new_instances[k].y << endl;
+    //     for(int i=0; i<placementRows[0].totalNumOfSites; i++){
+    //         if(new_instances[k].x <= placementRows[0].startX){
+    //             new_instances[k].x = placementRows[0].startX;
+    //             break;
+    //         }else if(new_instances[k].x >= placementRows[0].startX + placementRows[0].siteWidth*(placementRows[0].totalNumOfSites-1)){
+    //             new_instances[k].x = placementRows[0].startX + placementRows[0].siteWidth*(placementRows[0].totalNumOfSites-1);
+    //             break;
+    //         }else if(new_instances[k].x >= placementRows[0].startX + placementRows[0].siteWidth*(i) && new_instances[k].x < placementRows[0].startX + placementRows[0].siteWidth*(i+1)){
+    //             double a = new_instances[k].x - (placementRows[0].startX + placementRows[0].siteWidth*(i));
+    //             double b = (placementRows[0].startX + placementRows[0].siteWidth*(i+1)) - new_instances[k].x;
+    //             if(a > b){
+    //                 new_instances[k].x = placementRows[0].startX + placementRows[0].siteWidth*(i+1);
+    //             }else{
+    //                 new_instances[k].x = placementRows[0].startX + placementRows[0].siteWidth*(i);
+    //             }
+    //             break;
+    //         }
+    //     }
+
+    //     for(int j=0; j<placementRows[0].totalNumOfSites; j++){
+    //         if(new_instances[k].y <= placementRows[0].startY){
+    //             new_instances[k].y = placementRows[0].startY;
+    //             break;
+    //         }else if(new_instances[k].y >= placementRows[0].startY + placementRows[0].siteHeight*(placementRows.size()-1)){
+    //             new_instances[k].y = placementRows[0].startY + placementRows[0].siteHeight*(placementRows.size()-1);
+    //             break;
+    //         }else if(new_instances[k].y >= placementRows[0].startY + placementRows[0].siteHeight*(j) && new_instances[k].y < placementRows[0].startY + placementRows[0].siteHeight*(j+1)){
+    //             double a = new_instances[k].y - (placementRows[0].startY + placementRows[0].siteHeight*(j));
+    //             double b = (placementRows[0].startY + placementRows[0].siteHeight*(j+1)) - new_instances[k].y;
+    //             // cout << "a = " << a << " b = " << b << endl;
+    //             if(a > b){
+    //                 new_instances[k].y = placementRows[0].startY + placementRows[0].siteHeight*(j+1);
+    //                 cout << new_instances[k].y << endl;
+    //             }else{
+    //                 new_instances[k].y = placementRows[0].startY + placementRows[0].siteHeight*(j);
+    //             }
+    //             break;
+    //         }
+    //     }
+    //     // cout << "after moving x, y = " << new_instances[k].x << " " << new_instances[k].y << endl;
     // }
-    // placementBM.ShowByteMap();
+
+    // cout << "new_instances.size() = " << new_instances.size() << endl;
+
+    file.close();
+
+    // assert(0);
+
+    pmCreatePlacementMap();
+    //for (const auto& instance : ffInstances) {
+    for (auto& instance : new_instances) {
+        pmFFSearchPlacementMap(instance);
+    }
+    //pmShowPlacementMap();
+
+    ofstream fout(argv[2]);
+    if(!fout){
+        perror("Couldn't write output file");
+        exit(0);
+    }
+
+    fout << "CellInst " << new_instances.size() << endl;
+    for(const auto& new_instance : new_instances){
+        fout << "Inst " << new_instance.inst_name << " " << new_instance.type_name << " " << new_instance.x << " " << new_instance.y << endl;
+    }
+
+    for (const auto& templine : templines) {
+        fout << templine << endl;
+    }
 
     fout.close();
 

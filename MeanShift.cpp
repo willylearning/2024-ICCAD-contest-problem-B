@@ -3,19 +3,19 @@
 #include <math.h>
 #include <algorithm>
 #include <float.h>
-#include <boost/geometry.hpp>
-#include <boost/geometry/index/rtree.hpp>
-#include <boost/geometry/geometries/point.hpp>
-#include <boost/geometry/geometries/box.hpp>
+// #include <boost/geometry.hpp>
+// #include <boost/geometry/index/rtree.hpp>
+// #include <boost/geometry/geometries/point.hpp>
+// #include <boost/geometry/geometries/box.hpp>
 #include "MeanShift.h"
 
 using namespace std;
 
-namespace bg = boost::geometry;
-namespace bgi = boost::geometry::index;
+// namespace bg = boost::geometry;
+// namespace bgi = boost::geometry::index;
 
-using BoostPoint = bg::model::point<double, 2, bg::cs::cartesian>;
-using Value = std::pair<BoostPoint, size_t>;
+// using BoostPoint = bg::model::point<double, 2, bg::cs::cartesian>; // 2維點
+// using Value = std::pair<BoostPoint, size_t>;
 
 #define CLUSTER_EPSILON 0.5
 
@@ -54,46 +54,9 @@ bool cmp(pair<double, int> a, pair<double, int> b){
     return a.first < b.first;
 }
 
-// vector<vector<pair<double, int> > > parseCSV(const string& filename) {
-//     vector<vector<pair<double, int> > > data;
-//     ifstream file(filename);
-
-//     if (!file.is_open()) {
-//         cerr << "Could not open the file!" << endl;
-//         return data;
-//     }
-
-//     string line;
-//     while (getline(file, line)) {
-//         vector<pair<double, int> > row;
-//         stringstream ss(line);
-//         string value;
-//         bool isDouble = true;
-//         double doubleVal;
-//         int intVal;
-
-//         while (getline(ss, value, ',')) {
-//             if (isDouble) {
-//                 doubleVal = stod(value);
-//             } else {
-//                 intVal = stoi(value);
-//                 row.push_back(make_pair(doubleVal, intVal));
-//             }
-//             isDouble = !isDouble;
-//         }
-
-//         data.push_back(row);
-//     }
-
-//     file.close();
-//     return data;
-// }
-
-
-
 void MeanShift::shift_point(const Point &point, const std::vector<Point> &points, double kernel_bandwidth, Point &shifted_point, vector<double> var_h) {
     // point : current center point, points : all data points
-    double hmax = 100000; // need to be tested how big it should be
+    // double hmax = 100000; // need to be tested how big it should be
     int K = 2; // need to be tested how big it should be
     // vector<double> var_h = variable_bandwidth(points, kernel_bandwidth);
     shifted_point.resize(point.size());
@@ -228,7 +191,8 @@ vector<Cluster> MeanShift::cluster(const std::vector<Point> &points, const std::
 
 vector<Cluster> MeanShift::cluster(const std::vector<Point> &points, double kernel_bandwidth){
     vector<double> var_h = variable_bandwidth(points, kernel_bandwidth);
-    vector<Point> shifted_points = meanshift(points, kernel_bandwidth, var_h);
+    double EPSILON = 3;
+    vector<Point> shifted_points = meanshift(points, kernel_bandwidth, var_h, EPSILON);
     return cluster(points, shifted_points);
 }
 
@@ -237,50 +201,50 @@ vector<double> MeanShift::variable_bandwidth(const std::vector<Point> &points, d
     vector<double> var_h;
     // double hmax = 100000; // need to be tested how big it should be
     // int alpha = 1; // need to be determined
-    int M = 10000;
+    int M = points.size()/2; // 10000 for testcase1, 2 for others
 
-     // Create R-tree
-    bgi::rtree<Value, bgi::quadratic<16>> rtree;
-    for (size_t i = 0; i < points.size(); ++i) {
-        rtree.insert(std::make_pair(BoostPoint(points[i][0], points[i][1]), i));
-    }
+    //  // Create R-tree
+    // bgi::rtree<Value, bgi::quadratic<16>> rtree;
+    // for (size_t i = 0; i < points.size(); ++i) {
+    //     rtree.insert(std::make_pair(BoostPoint(points[i][0], points[i][1]), i));
+    // }
 
-    for (size_t i = 0; i < points.size(); ++i) {
-        const auto& point = points[i];
-        BoostPoint query_point(point[0], point[1]);
-        std::vector<Value> result_n;
+    // for (size_t i = 0; i < points.size(); ++i) {
+    //     const auto& point = points[i];
+    //     BoostPoint query_point(point[0], point[1]);
+    //     std::vector<Value> result_n;
 
-        // Perform k-nearest neighbor search (k = M+1 to exclude the point itself)
-        rtree.query(bgi::nearest(query_point, M + 1), std::back_inserter(result_n));
+    //     // Perform k-nearest neighbor search (k = M+1 to exclude the point itself)
+    //     rtree.query(bgi::nearest(query_point, M + 1), std::back_inserter(result_n));
 
-        std::vector<double> distances;
-        for (const auto& value : result_n) {
-            if (value.second != i) { // Skip the point itself
-                distances.push_back(euclidean_distance(point, points[value.second]));
-            }
-        }
-
-        // Sort distances and take the M-th nearest
-        if (distances.size() >= M) {
-            std::nth_element(distances.begin(), distances.begin() + M - 1, distances.end());
-            var_h.push_back(distances[M - 1]);
-        } else {
-            var_h.push_back(0.0); // Handle case where there are not enough neighbors
-        }
-    }
-
-    // // find the M-th nearest neighbor of every point in points
-    // for(int i=0; i<points.size(); i++){
-    //     for(int j=0; j<points.size(); j++){
-    //         if(points[i] != points[j]){
-    //             // the Euclidean distance between register i and its M-th nearest neighbor
-    //             a[i].push_back(euclidean_distance(points[i], points[j])); 
+    //     std::vector<double> distances;
+    //     for (const auto& value : result_n) {
+    //         if (value.second != i) { // Skip the point itself
+    //             distances.push_back(euclidean_distance(point, points[value.second]));
     //         }
     //     }
-    //     // sort(a[i].begin(), a[i].end());
-    //     nth_element(a[i].begin(), a[i].begin() + M - 1, a[i].end());
-    //     var_h.push_back(a[i][M-1]);
+
+    //     // Sort distances and take the M-th nearest
+    //     if (distances.size() >= M) {
+    //         std::nth_element(distances.begin(), distances.begin() + M - 1, distances.end());
+    //         var_h.push_back(distances[M - 1]);
+    //     } else {
+    //         var_h.push_back(0.0); // Handle case where there are not enough neighbors
+    //     }
     // }
+
+    // // find the M-th nearest neighbor of every point in points
+    for(int i=0; i<points.size(); i++){
+        for(int j=0; j<points.size(); j++){
+            if(points[i] != points[j]){
+                // the Euclidean distance between register i and its M-th nearest neighbor
+                a[i].push_back(euclidean_distance(points[i], points[j])); 
+            }
+        }
+        // sort(a[i].begin(), a[i].end());
+        nth_element(a[i].begin(), a[i].begin() + M - 1, a[i].end());
+        var_h.push_back(a[i][M-1]);
+    }
 
     return var_h;
 }

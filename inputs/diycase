@@ -53,14 +53,14 @@ Pin reg4/D
 Net out 2
 Pin reg4/Q
 Pin out
-Net in 4
+Net in 3
 Pin in
 Pin C1/D
 Pin C3/CLK
-Pin C4/CLK
-Net clk0 3
+Net clk0 4
 Pin C1/CLK
 Pin C2/CLK
+Pin C4/CLK
 Pin C5/CLK
 BinWidth 1200
 BinHeight 1200
