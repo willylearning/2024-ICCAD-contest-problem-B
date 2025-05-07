@@ -1,4 +1,4 @@
-# cad_contest
+# 2024 ICCAD contest problem B: Power and Timing Optimization Using Multibit Flip-Flop
 
 how to compile :
 make
